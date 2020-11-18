@@ -3,13 +3,13 @@
 ## Open questions for lab meeting are in straight braces []
 
 ## ToDo tasks are in curly {}
-[] {Figure out how load continuous ECoG data}
-[X] {Create an NWB file to write to}
-[] {Create electrical series from ECoG data and write to NWB file}
-    [] How to input electrode locations based on location matrix provide 
-    [] What location to put for each electrode
-[] {Input position}
-[] {Input other features}
+- [] {Figure out how load continuous ECoG data}
+- [X] {Create an NWB file to write to}
+- [] {Create electrical series from ECoG data and write to NWB file}
+  -  [] How to input electrode locations based on location matrix provide 
+  -  [] What location to put for each electrode
+- [] {Input position}
+- [] {Input other features}
 
 
 All ECoG and associated meta data are stored in fif files that are loaded with the MNE package into an MNE object.  
