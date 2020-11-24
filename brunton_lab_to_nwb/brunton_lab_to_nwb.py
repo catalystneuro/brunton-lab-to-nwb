@@ -1,8 +1,13 @@
+import os
 import re
 import uuid
 from datetime import datetime
+from joblib import Parallel, delayed
+from glob import glob
+
 
 import numpy as np
+import pandas as pd
 from h5py import File
 from hdmf.backends.hdf5.h5_utils import H5DataIO
 from hdmf.data_utils import DataChunkIterator
@@ -10,20 +15,27 @@ from lazy_ops import DatasetView
 from pynwb import NWBFile, NWBHDF5IO, TimeSeries
 from pynwb.behavior import Position, SpatialSeries
 from pynwb.ecephys import ElectricalSeries
+from pynwb.file import Subject
+
+SPECIAL_CHANNELS = (b'EOGL', b'EOGR', b'ECGL', b'ECGR')
 
 
 def run_conversion(
         fpath_in='/Volumes/easystore5T/data/Brunton/subj_01_day_4.h5',
-        out_fpath='/Volumes/easystore5T/data/Brunton/subj_01_day_4.nwb',
-        special_chans=(b'EOGL', b'EOGR', b'ECGL', b'ECGR'),
+        fpath_out='/Volumes/easystore5T/data/Brunton/subj_01_day_4.nwb',
+        special_chans=SPECIAL_CHANNELS,
         session_description='no description'
 ):
+    fname = os.path.split(os.path.splitext(fpath_in)[0])[1]
+    _, subject_id, _, session = fname.split('_')
+
     file = File(fpath_in, 'r')
 
     nwbfile = NWBFile(
         session_description=session_description,
         identifier=str(uuid.uuid4()),
-        session_start_time=datetime.fromtimestamp(file['start_timestamp'][()])
+        session_start_time=datetime.fromtimestamp(file['start_timestamp'][()]),
+        subject=Subject(subject_id=subject_id)
     )
 
     # extract electrode groups
@@ -78,14 +90,9 @@ def run_conversion(
             )
 
     # add electrode groups
-    electrode_group_descriptions = dict(
-        GRID='ECoG grid',
-        LAT='lateral anterior temporal strip',
-        LID='lateral inferior depth',
-        LMT='lateral medial temporal strip',
-        LPT='lateral posterior temporal strip',
-        LTO='lateral temporal occipital strip',
-    )
+    df = pd.read_csv('elec_loc_labels.csv')
+    df_subject = df[df['subject_ID'] == 'subj' + subject_id]
+    electrode_group_descriptions = {row['label']: row['long_name'] for _, row in df_subject.iterrows()}
 
     groups_map = dict()
     for group_name, group_description in electrode_group_descriptions.items():
@@ -185,5 +192,15 @@ def run_conversion(
     )
 
     # write NWB file
-    with NWBHDF5IO(out_fpath, 'w') as io:
+    with NWBHDF5IO(fpath_out, 'w') as io:
         io.write(nwbfile)
+
+
+def convert_dir(in_dir, n_jobs=1):
+
+    in_files = glob(os.path.join(in_dir, '*.h5'))
+    out_files = [os.path.splitext(x) + '.nwb' for x in in_files]
+
+    Parallel(n_jobs=n_jobs)(
+        delayed(run_conversion)(fpath_in, fpath_out)
+        for fpath_in, fpath_out in zip(in_files, out_files))
