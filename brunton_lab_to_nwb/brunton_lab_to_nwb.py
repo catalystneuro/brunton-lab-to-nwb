@@ -2,15 +2,14 @@ import os
 import re
 import uuid
 from datetime import datetime
-from joblib import Parallel, delayed
 from glob import glob
-
 
 import numpy as np
 import pandas as pd
 from h5py import File
 from hdmf.backends.hdf5.h5_utils import H5DataIO
 from hdmf.data_utils import DataChunkIterator
+from joblib import Parallel, delayed
 from lazy_ops import DatasetView
 from pynwb import NWBFile, NWBHDF5IO, TimeSeries
 from pynwb.behavior import Position, SpatialSeries
@@ -197,9 +196,8 @@ def run_conversion(
 
 
 def convert_dir(in_dir, n_jobs=1):
-
     in_files = glob(os.path.join(in_dir, '*.h5'))
-    out_files = [os.path.splitext(x) + '.nwb' for x in in_files]
+    out_files = [os.path.splitext(x)[0] + '.nwb' for x in in_files]
 
     Parallel(n_jobs=n_jobs)(
         delayed(run_conversion)(fpath_in, fpath_out)
