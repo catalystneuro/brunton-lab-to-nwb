@@ -159,6 +159,7 @@ def run_conversion(
                 compression='gzip'
             ),
             rate=file['f_sample'][()],
+            conversion=1e-6,  # data is in uV
             electrodes=nwbfile.create_electrode_table_region(
                 region=list(range(len(nwbfile.electrodes))),
                 description='all electrodes'
