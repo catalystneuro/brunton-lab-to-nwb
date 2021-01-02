@@ -25,7 +25,7 @@ def run_conversion(
         special_chans=SPECIAL_CHANNELS,
         session_description='no description'
 ):
-    print(f"Converting f{fpath_in}...")
+    print(f"Converting {fpath_in}...")
     fname = os.path.split(os.path.splitext(fpath_in)[0])[1]
     _, subject_id, _, session = fname.split('_')
 
@@ -90,7 +90,7 @@ def run_conversion(
             )
 
     # add electrode groups
-    df = pd.read_csv('/mnt/scrap/cbaker239/brunton-lab-to-nwb/elec_loc_labels.csv')
+    df = pd.read_csv('elec_loc_labels.csv')
     df_subject = df[df['subject_ID'] == 'subj' + subject_id]
     electrode_group_descriptions = {row['label']: row['long_name'] for _, row in df_subject.iterrows()}
 
@@ -198,12 +198,11 @@ def run_conversion(
 
 
 def convert_dir(in_dir, n_jobs=1):
-    all_files = [str(x) for x in Path(in_dir).iterdir()]
-    in_files = [
-        x for x in all_files
-        if ".h5" in Path(x).suffix and f"/mnt/scrap/cbaker239/Brunton/{Path(x).stem}.nwb" not in all_files
-    ]
-    out_files = [f"{Path(x).stem}.nwb" for x in in_files]
+    in_dir = Path(in_dir)
+    all_data_files = [x.stem for x in in_dir.iterdir() if ".h5" in x.suffix]
+    nwb_files = [x.stem for x in in_dir.iterdir() if ".nwb" in x.suffix]
+    in_files = [str(in_dir / f"{x}.h5") for x in all_data_files if x not in nwb_files]
+    out_files = [str(in_dir / f"{x}.nwb") for x in in_files]
 
     Parallel(n_jobs=n_jobs)(
         delayed(run_conversion)(fpath_in, fpath_out)
