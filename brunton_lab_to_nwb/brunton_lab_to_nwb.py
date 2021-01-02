@@ -202,7 +202,7 @@ def convert_dir(in_dir, n_jobs=1):
     all_data_files = [x.stem for x in all_files if ".h5" in x.suffix]
     nwb_files = [x.stem for x in all_files if ".nwb" in x.suffix]
     in_files = [str(in_dir / f"{x}.h5") for x in all_data_files if x not in nwb_files]
-    out_files = [str(in_dir / f"{x}.nwb") for x in in_files]
+    out_files = [str(in_dir / f"{Path(x).stem}.nwb") for x in in_files]
 
     Parallel(n_jobs=n_jobs)(
         delayed(run_conversion)(fpath_in, fpath_out)
