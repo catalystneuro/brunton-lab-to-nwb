@@ -35,7 +35,7 @@ def run_conversion(
         session_description=session_description,
         identifier=str(uuid.uuid4()),
         session_start_time=datetime.fromtimestamp(file['start_timestamp'][()]),
-        subject=Subject(subject_id=subject_id, species="Homo Sapiens")
+        subject=Subject(subject_id=subject_id, species="Homo sapiens")
     )
 
     # extract electrode groups
