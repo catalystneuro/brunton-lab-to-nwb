@@ -2,14 +2,14 @@ import os
 import re
 import uuid
 from datetime import datetime
-from glob import glob
-
+from pathlib import Path
 import numpy as np
 import pandas as pd
+from joblib import Parallel, delayed
+
 from h5py import File
 from hdmf.backends.hdf5.h5_utils import H5DataIO
 from hdmf.data_utils import DataChunkIterator
-from joblib import Parallel, delayed
 from lazy_ops import DatasetView
 from pynwb import NWBFile, NWBHDF5IO, TimeSeries
 from pynwb.behavior import Position, SpatialSeries
@@ -25,6 +25,7 @@ def run_conversion(
         special_chans=SPECIAL_CHANNELS,
         session_description='no description'
 ):
+    print(f"Converting {fpath_in}...")
     fname = os.path.split(os.path.splitext(fpath_in)[0])[1]
     _, subject_id, _, session = fname.split('_')
 
@@ -34,7 +35,7 @@ def run_conversion(
         session_description=session_description,
         identifier=str(uuid.uuid4()),
         session_start_time=datetime.fromtimestamp(file['start_timestamp'][()]),
-        subject=Subject(subject_id=subject_id)
+        subject=Subject(subject_id=subject_id, species="Homo sapiens")
     )
 
     # extract electrode groups
@@ -196,10 +197,18 @@ def run_conversion(
         io.write(nwbfile)
 
 
-def convert_dir(in_dir, n_jobs=1):
-    in_files = glob(os.path.join(in_dir, '*.h5'))
-    out_files = [os.path.splitext(x)[0] + '.nwb' for x in in_files]
+def convert_dir(in_dir, n_jobs=1, overwrite: bool = False):
+    all_files = Path(in_dir).iterdir()
+    all_data_files = [x.stem for x in all_files if ".h5" in x.suffix]
+    nwb_files = [x.stem for x in all_files if ".nwb" in x.suffix]
+
+    if overwrite:
+        in_files = [str(in_dir / f"{x}.h5") for x in all_data_files]
+    else:
+        in_files = [str(in_dir / f"{x}.h5") for x in all_data_files if x not in nwb_files]
+    out_files = [str(in_dir / f"{Path(x).stem}.nwb") for x in in_files]
 
     Parallel(n_jobs=n_jobs)(
         delayed(run_conversion)(fpath_in, fpath_out)
-        for fpath_in, fpath_out in zip(in_files, out_files))
+        for fpath_in, fpath_out in zip(in_files, out_files)
+    )

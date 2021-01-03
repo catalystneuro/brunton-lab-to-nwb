@@ -1,4 +1,4 @@
-﻿subject_ID,label,long_name
+subject_ID,label,long_name
 subj01,GRID,ECoG grid
 subj01,LAT,left anterior temporal
 subj01,LID,left insular depth
@@ -42,6 +42,7 @@ subj09,LMT,left medial temporal
 subj09,LPT,left posterior temporal
 subj09,LTO,left temporal occipital
 subj09,RAT,right anterior temporal
+subj09,RATD,right anterior temporal depth
 subj09,RFD,right frontal depth
 subj09,RPT,right posterior temporal
 subj10,AHD,anterior hippocampal depth
