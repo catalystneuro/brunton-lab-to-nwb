@@ -15,6 +15,7 @@ from pynwb import NWBFile, NWBHDF5IO, TimeSeries
 from pynwb.behavior import Position, SpatialSeries
 from pynwb.ecephys import ElectricalSeries
 from pynwb.file import Subject
+from ndx_events import Events
 
 SPECIAL_CHANNELS = (b'EOGL', b'EOGR', b'ECGL', b'ECGR')
 
@@ -35,7 +36,8 @@ def run_conversion(
         session_description=session_description,
         identifier=str(uuid.uuid4()),
         session_start_time=datetime.fromtimestamp(file['start_timestamp'][()]),
-        subject=Subject(subject_id=subject_id, species="Homo sapiens")
+        subject=Subject(subject_id=subject_id, species="Homo sapiens"),
+        session_id = session
     )
 
     # extract electrode groups
@@ -192,6 +194,21 @@ def run_conversion(
         )
     )
 
+    # add events
+    events = pd.read_csv('event_times.csv')
+    mask = (events['Subject'] == int(subject_id)) & (events['Recording day'] == int(session))
+    events = events[mask]
+    timestamps = events['Event time'].values
+
+    events = Events(name='ReachEvents',
+                    description='reach events during naturalisitic arm movements',
+                    timestamps=timestamps,
+                    resolution=2e-3,  # resolution of the timestamps, i.e., smallest possible difference between timestamps
+                    )
+
+    # add the Events type to the processing group of the NWB file
+    nwbfile.processing['behavior'].add(events)
+
     # write NWB file
     with NWBHDF5IO(fpath_out, 'w') as io:
         io.write(nwbfile)
@@ -203,10 +220,11 @@ def convert_dir(in_dir, n_jobs=1, overwrite: bool = False):
     nwb_files = [x.stem for x in all_files if ".nwb" in x.suffix]
 
     if overwrite:
-        in_files = [str(in_dir / f"{x}.h5") for x in all_data_files]
+        in_files = [str(in_dir + '\\' + f"{x}.h5") for x in all_data_files]
     else:
-        in_files = [str(in_dir / f"{x}.h5") for x in all_data_files if x not in nwb_files]
-    out_files = [str(in_dir / f"{Path(x).stem}.nwb") for x in in_files]
+        print(all_data_files, in_dir)
+        in_files = [str(in_dir + '\\' + f"{x}.h5") for x in all_data_files if x not in nwb_files]
+    out_files = [str(in_dir + '\\' + f"{Path(x).stem}.nwb") for x in in_files]
 
     Parallel(n_jobs=n_jobs)(
         delayed(run_conversion)(fpath_in, fpath_out)

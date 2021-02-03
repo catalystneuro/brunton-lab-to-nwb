@@ -1,3 +1,4 @@
 pynwb
 lazy_ops
 pandas
+ndx_events
