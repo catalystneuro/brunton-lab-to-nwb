@@ -6,7 +6,7 @@ from ndx_events import Events
 
 import scipy
 import numpy as np
-import matplotlib as plt
+import matplotlib.pyplot as plt
 
 
 class JointPosPSTHWidget(widgets.VBox):
@@ -18,8 +18,8 @@ class JointPosPSTHWidget(widgets.VBox):
         before_ft = widgets.FloatText(.5, min=0, description='before (s)', layout=Layout(width='200px'))
         after_ft = widgets.FloatText(2., min=0, description='after (s)', layout=Layout(width='200px'))
 
-        starts = events.timestamps + before_ft
-        stops = events.timestamps + after_ft
+        starts = events.timestamps[:] - before_ft.value
+        stops = events.timestamps[:] + after_ft.value
 
         # Extract reach arm label from events, format to match key in spatial series
         reach_arm = events.description
@@ -30,7 +30,8 @@ class JointPosPSTHWidget(widgets.VBox):
         self.unit = spatialseries.unit
 
         self.trials = align_by_times(spatialseries, starts, stops)
-
+        print(self.trials)
+        print(np.shape(self.trials))
         if self.trials is None:
             self.children = [widgets.HTML('No trials present')]
             return
@@ -39,7 +40,6 @@ class JointPosPSTHWidget(widgets.VBox):
 
         self.controls = dict(
             trials=fixed(self.trials),
-            sigma_in_secs=fixed(sigma_in_secs),
             ntt=fixed(ntt),
             after=after_ft,
             before=before_ft,
@@ -51,7 +51,6 @@ class JointPosPSTHWidget(widgets.VBox):
 
         self.children = [
             widgets.HBox([
-                self.gas,
                 widgets.VBox([
                     before_ft,
                     after_ft,
@@ -81,23 +80,26 @@ class JointPosPSTHWidget(widgets.VBox):
         matplotlib.Figure
 
         """
-        fig, axs = plt.subplots(1, 1, figsize=figsize)
-        axs[0].set_title('PSTH for Joint Position')
+        fig, axs = plt.subplots(figsize=figsize)
+        print(axs)
+        axs.set_title('PSTH for Joint Position')
 
-        self.show_psth_smoothed(trials, axs[0], before, after, ntt=ntt)
+        self.show_psth_smoothed(trials, axs, before, after, ntt=ntt)
         return fig
 
     def show_psth_smoothed(self, trials, ax, before, after, ntt=1000,
                            align_line_color=(.7, .7, .7)):
         if not len(trials):  # TODO: when does this occur?
             return
+        print(all_data)
         all_data = np.hstack(trials)
+        print(all_data)
         if not len(all_data):  # no spikes
             return
-        tt = np.linspace(min(all_data), max(all_data), ntt)
+        tt = all_data
         group_stats = []
-        this_mean = np.mean(all_data, axis=0)
-        err = scipy.stats.sem(all_data, axis=0)
+        this_mean = np.nanmean(all_data, axis=0)
+        err = scipy.stats.sem(all_data, axis=0, nan_policy='omit')
         group_stats.append(
             dict(mean=this_mean,
                  lower=this_mean - 2 * err,
