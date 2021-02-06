@@ -200,9 +200,10 @@ def run_conversion(
     mask = (events['Subject'] == int(subject_id)) & (events['Recording day'] == int(session))
     events = events[mask]
     timestamps = events['Event time'].values
+    events = events.reset_index()
 
     events = Events(name='ReachEvents',
-                    description='reach events during naturalisitic arm movements',
+                    description=events['Event type'][0], # Specifies which arm was used
                     timestamps=timestamps,
                     resolution=2e-3,  # resolution of the timestamps, i.e., smallest possible difference between timestamps
                     )
