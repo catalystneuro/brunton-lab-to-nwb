@@ -9,15 +9,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-class JointPosPSTHWidget(widgets.VBox):
-    def __init__(self, events: Events, position: Position,
-                 sigma_in_secs=.05, ntt=1000):
-
+class JointPosPSTHWidget(widgets.HBox):
+    def __init__(self, events: Events, position: Position):
         super().__init__()
 
         before_ft = widgets.FloatText(.5, min=0, description='before (s)', layout=Layout(width='200px'))
         after_ft = widgets.FloatText(2., min=0, description='after (s)', layout=Layout(width='200px'))
-
         # Extract reach arm label from events, format to match key in Position
         # spatial series
         reach_arm = events.description
@@ -25,33 +22,24 @@ class JointPosPSTHWidget(widgets.VBox):
         reach_arm = list(reach_arm)
         reach_arm = '_'.join(reach_arm)
         self.spatial_series = position.spatial_series[reach_arm]
-
         # Store events in object
         self.events = events.timestamps[:]
-
-        # self.gas = self.make_group_and_sort(window=False, control_order=False)
-
         self.controls = dict(
             after=after_ft,
             before=before_ft,
-            # gas=self.gas,
-            # progress_bar=fixed(progress_bar)
         )
 
         out_fig = interactive_output(self.trials_psth, self.controls)
 
-        self.children = [
-            widgets.HBox([
-                widgets.VBox([
-                    before_ft,
-                    after_ft,
-                ])
-            ]),
-            out_fig
-        ]
+        self.children = [widgets.VBox([before_ft,
+                                       after_ft,
+                                       ]),
+                         out_fig
+                         ]
 
-    def trials_psth(self, before=0., after=1., figsize=(10, 10)):
+    def trials_psth(self, before=0., after=1., figsize=(12, 12)):
         """
+        Trial data by event times and plot
 
         Parameters
         ----------
@@ -72,8 +60,8 @@ class JointPosPSTHWidget(widgets.VBox):
         if trials is None:
             self.children = [widgets.HTML('No trials present')]
             return
+
         fig, axs = plt.subplots(2, 1, figsize=figsize)
-        print(axs)
         axs[0].set_title('PSTH for Joint X-Position')
         axs[1].set_title('PSTH for Joint Y-Position')
 
@@ -81,17 +69,30 @@ class JointPosPSTHWidget(widgets.VBox):
         self.show_psth(trials[:, :, 1], axs[1], before, after)
         return fig
 
-    def show_psth(self, trials, ax, before, after,
-                           align_line_color=(.7, .7, .7)):
-        if not len(trials):  # TODO: when does this occur?
-            return
-        all_data = trials
-        print(np.shape(all_data))
-        if not len(all_data):  # no spikes
-            return
+    def show_psth(self, trials, ax, before, after, align_line_color=(.7, .7, .7)):
+        """
+        Calculate descriptive stats (mean, sem) on trialed data and plot
+
+        Parameters
+        ----------
+        trials: np.ndarray(dtype=float)
+            Array with trialed data of shape=(n_trials, n_time, # data columns))
+        ax: matplotlib.axes._subplots.AxesSubplot
+            Subplot axes to plot figure
+        before: float
+            Time before that event (should be positive)
+        after: float
+            Time after that event
+        align_line_color: tuple, optional
+
+        Returns
+        -------
+        matplotlib.Figure
+
+        """
         tt = np.linspace(-before, after, int((before+after) * self.spatial_series.rate))
-        this_mean = np.nanmean(all_data, axis=0)
-        err = scipy.stats.sem(all_data, axis=0, nan_policy='omit')
+        this_mean = np.nanmean(trials, axis=0)
+        err = scipy.stats.sem(trials, axis=0, nan_policy='omit')
         group_stats = dict(mean=this_mean,
                            lower=this_mean - 2 * err,
                            upper=this_mean + 2 * err,
@@ -99,6 +100,6 @@ class JointPosPSTHWidget(widgets.VBox):
         ax.plot(tt, group_stats['mean'])
         ax.fill_between(tt, group_stats['lower'], group_stats['upper'], alpha=.2)
         ax.set_xlim([-before, after])
-        ax.set_ylabel('Joint Position {}'.format(self.spatial_series.unit))
+        ax.set_ylabel('Joint Position ({})'.format(self.spatial_series.unit))
         ax.set_xlabel('time (s)')
         ax.axvline(color=align_line_color)
