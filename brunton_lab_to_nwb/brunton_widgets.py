@@ -56,6 +56,19 @@ class JointPosPSTHWidget(widgets.HBox):
         """
         starts = self.events - before
         stops = self.events + after
+        # Construct time vector
+        # tt_start = self.spatial_series.starting_time
+        # num_pts = np.shape(self.spatial_series.data[:])[0]
+        # tt_stop = num_pts / self.spatial_series.rate
+        # tt = np.linspace(tt_start, tt_stop, int((num_pts)))
+        # # Compute speed
+        # speed = compute_speed(self.spatial_series.data[:], tt)
+        # speed = np.reshape(speed, (-1, 1))
+        # # Append to position data
+        # pos_Wspeed = np.append(self.spatial_series.data[:], speed, axis=1)
+        # del self.spatial_series.data
+        # self.spatial_series.data = pos_Wspeed
+
         trials = align_by_times(self.spatial_series, starts, stops)
         if trials is None:
             self.children = [widgets.HTML('No trials present')]
@@ -64,9 +77,11 @@ class JointPosPSTHWidget(widgets.HBox):
         fig, axs = plt.subplots(2, 1, figsize=figsize)
         axs[0].set_title('PSTH for Joint X-Position')
         axs[1].set_title('PSTH for Joint Y-Position')
+        # axs[2].set_title('PSTH for Speed (m/s)')
 
         self.show_psth(trials[:, :, 0], axs[0], before, after)
         self.show_psth(trials[:, :, 1], axs[1], before, after)
+        # self.show_psth(trials[:, :, 2], axs[2], before, after, tt)
         return fig
 
     def show_psth(self, trials, ax, before, after, align_line_color=(.7, .7, .7)):
@@ -90,7 +105,7 @@ class JointPosPSTHWidget(widgets.HBox):
         matplotlib.Figure
 
         """
-        tt = np.linspace(-before, after, int((before+after) * self.spatial_series.rate))
+        tt = np.linspace(-before, after, int((before + after) * self.spatial_series.rate))
         this_mean = np.nanmean(trials, axis=0)
         err = scipy.stats.sem(trials, axis=0, nan_policy='omit')
         group_stats = dict(mean=this_mean,
@@ -103,3 +118,26 @@ class JointPosPSTHWidget(widgets.HBox):
         ax.set_ylabel('Joint Position ({})'.format(self.spatial_series.unit))
         ax.set_xlabel('time (s)')
         ax.axvline(color=align_line_color)
+
+def compute_speed(pos, pos_tt):
+    """Compute boolean of whether the speed of the animal was above a threshold
+    for each time point
+
+    Parameters
+    ----------
+    pos: np.ndarray(dtype=float)
+        in meters
+    pos_tt: np.ndarray(dtype=float)
+        in seconds
+    smooth_param: float, optional
+
+    Returns
+    -------
+    running: np.ndarray(dtype=bool)
+
+    """
+    if len(pos.shape) > 1:
+        speed = np.hstack((0, np.sqrt(np.sum(np.diff(pos.T) ** 2, axis=0)) / np.diff(pos_tt)))
+    else:
+        speed = np.hstack((0, np.sqrt(np.diff(pos.T) ** 2) / np.diff(pos_tt)))
+    return speed
