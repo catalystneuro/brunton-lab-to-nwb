@@ -15,6 +15,7 @@ from pynwb import NWBFile, NWBHDF5IO, TimeSeries
 from pynwb.behavior import Position, SpatialSeries
 from pynwb.ecephys import ElectricalSeries
 from pynwb.file import Subject
+from ndx_events import Events
 
 SPECIAL_CHANNELS = (b'EOGL', b'EOGR', b'ECGL', b'ECGR')
 
@@ -22,6 +23,7 @@ SPECIAL_CHANNELS = (b'EOGL', b'EOGR', b'ECGL', b'ECGR')
 def run_conversion(
         fpath_in='/Volumes/easystore5T/data/Brunton/subj_01_day_4.h5',
         fpath_out='/Volumes/easystore5T/data/Brunton/subj_01_day_4.nwb',
+        events_path='C:/Users/micha/Desktop/Brunton Lab Data/event_times.csv',
         special_chans=SPECIAL_CHANNELS,
         session_description='no description'
 ):
@@ -35,7 +37,8 @@ def run_conversion(
         session_description=session_description,
         identifier=str(uuid.uuid4()),
         session_start_time=datetime.fromtimestamp(file['start_timestamp'][()]),
-        subject=Subject(subject_id=subject_id, species="Homo sapiens")
+        subject=Subject(subject_id=subject_id, species="Homo sapiens"),
+        session_id = session
     )
 
     # extract electrode groups
@@ -192,23 +195,39 @@ def run_conversion(
         )
     )
 
+    # add events
+    events = pd.read_csv(events_path)
+    mask = (events['Subject'] == int(subject_id)) & (events['Recording day'] == int(session))
+    events = events[mask]
+    timestamps = events['Event time'].values
+    events = events.reset_index()
+
+    events = Events(name='ReachEvents',
+                    description=events['Event type'][0], # Specifies which arm was used
+                    timestamps=timestamps,
+                    resolution=2e-3,  # resolution of the timestamps, i.e., smallest possible difference between timestamps
+                    )
+
+    # add the Events type to the processing group of the NWB file
+    nwbfile.processing['behavior'].add(events)
+
     # write NWB file
     with NWBHDF5IO(fpath_out, 'w') as io:
         io.write(nwbfile)
 
 
-def convert_dir(in_dir, n_jobs=1, overwrite: bool = False):
+def convert_dir(in_dir, events_path, n_jobs=1, overwrite: bool = False):
     all_files = Path(in_dir).iterdir()
     all_data_files = [x.stem for x in all_files if ".h5" in x.suffix]
     nwb_files = [x.stem for x in all_files if ".nwb" in x.suffix]
 
     if overwrite:
-        in_files = [str(in_dir / f"{x}.h5") for x in all_data_files]
+        in_files = [os.path.join(in_dir, f"{x}.h5") for x in all_data_files]
     else:
-        in_files = [str(in_dir / f"{x}.h5") for x in all_data_files if x not in nwb_files]
-    out_files = [str(in_dir / f"{Path(x).stem}.nwb") for x in in_files]
+        in_files = [os.path.join(in_dir, f"{x}.h5") for x in all_data_files if x not in nwb_files]
+    out_files = [os.path.join(in_dir, f"{Path(x).stem}.nwb") for x in in_files]
 
     Parallel(n_jobs=n_jobs)(
-        delayed(run_conversion)(fpath_in, fpath_out)
+        delayed(run_conversion)(fpath_in, fpath_out, events_path)
         for fpath_in, fpath_out in zip(in_files, out_files)
     )
