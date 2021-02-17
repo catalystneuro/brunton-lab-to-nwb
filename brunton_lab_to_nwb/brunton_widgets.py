@@ -106,8 +106,9 @@ class JointPosPSTHWidget(widgets.HBox):
 
         """
         tt = np.linspace(-before, after, int((before + after) * self.spatial_series.rate))
-        this_mean = np.nanmean(trials, axis=0)
-        err = scipy.stats.sem(trials, axis=0, nan_policy='omit')
+        trials = trials.T - trials[:,0]
+        this_mean = np.nanmean(trials, axis=1)
+        err = scipy.stats.sem(trials, axis=1, nan_policy='omit')
         group_stats = dict(mean=this_mean,
                            lower=this_mean - 2 * err,
                            upper=this_mean + 2 * err,
