@@ -153,12 +153,12 @@ def run_conversion(
             data=elecs_dset[file_elec_col_names == 'goodChanInds', is_elec].astype(bool)
         ),
         dict(
-            name='low freq R2',
+            name='low_freq_R2',
             description='R^2 for low frequency band on each electrode',
             data=low_freqR2
         ),
         dict(
-            name='high freq R2',
+            name='high_freq_R2',
             description='R^2 for high frequency band on each electrode',
             data=high_freqR2
         )
