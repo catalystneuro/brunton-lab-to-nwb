@@ -56,32 +56,23 @@ class JointPosPSTHWidget(widgets.HBox):
         """
         starts = self.events - before
         stops = self.events + after
-        # Construct time vector
-        # tt_start = self.spatial_series.starting_time
-        # num_pts = np.shape(self.spatial_series.data[:])[0]
-        # tt_stop = num_pts / self.spatial_series.rate
-        # tt = np.linspace(tt_start, tt_stop, int((num_pts)))
-        # # Compute speed
-        # speed = compute_speed(self.spatial_series.data[:], tt)
-        # speed = np.reshape(speed, (-1, 1))
-        # # Append to position data
-        # pos_Wspeed = np.append(self.spatial_series.data[:], speed, axis=1)
-        # del self.spatial_series.data
-        # self.spatial_series.data = pos_Wspeed
 
         trials = align_by_times(self.spatial_series, starts, stops)
+        zero_ind = before * self.spatial_series.rate
+        diff_x = trials[:, :, 0].T - trials[:, int(zero_ind), 0]
+        diff_y = trials[:, :, 1].T - trials[:, int(zero_ind), 1]
+
+        diffs = np.dstack([diff_x, diff_y])
+        distance = np.linalg.norm(diffs, axis=2)
+
         if trials is None:
             self.children = [widgets.HTML('No trials present')]
             return
 
-        fig, axs = plt.subplots(2, 1, figsize=figsize)
-        axs[0].set_title('PSTH for Joint X-Position')
-        axs[1].set_title('PSTH for Joint Y-Position')
-        # axs[2].set_title('PSTH for Speed (m/s)')
+        fig, axs = plt.subplots(1, 1, figsize=figsize)
+        axs.set_title('PSTH for Displacement')
 
-        self.show_psth(trials[:, :, 0], axs[0], before, after)
-        self.show_psth(trials[:, :, 1], axs[1], before, after)
-        # self.show_psth(trials[:, :, 2], axs[2], before, after, tt)
+        self.show_psth(distance, axs, before, after)
         return fig
 
     def show_psth(self, trials, ax, before, after, align_line_color=(.7, .7, .7)):
@@ -106,12 +97,11 @@ class JointPosPSTHWidget(widgets.HBox):
 
         """
         tt = np.linspace(-before, after, int((before + after) * self.spatial_series.rate))
-        trials = trials.T - trials[:,0]
         this_mean = np.nanmean(trials, axis=1)
-        err = scipy.stats.sem(trials, axis=1, nan_policy='omit')
+        err = np.nanstd(trials, axis=1)
         group_stats = dict(mean=this_mean,
-                           lower=this_mean - 2 * err,
-                           upper=this_mean + 2 * err,
+                           lower=this_mean - err,
+                           upper=this_mean + err,
                            )
         ax.plot(tt, group_stats['mean'])
         ax.fill_between(tt, group_stats['lower'], group_stats['upper'], alpha=.2)
