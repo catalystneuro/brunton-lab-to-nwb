@@ -122,11 +122,9 @@ def run_conversion(
 
     # load r2 values to input into custom cols in electrodes table
     r2 = np.load(r2_path)
-    low_freqR2 = r2[int(subject_id)-1, :len(group_names), 0]
-    low_freqR2 = np.reshape(low_freqR2, (-1, 1))
+    low_freq_r2 = np.ravel(r2[int(subject_id)-1, :len(group_names), 0])
 
-    high_freqR2 = r2[int(subject_id)-1, :len(group_names), 1]
-    high_freqR2 = np.reshape(high_freqR2, (-1, 1))
+    high_freq_r2 = np.ravel(r2[int(subject_id)-1, :len(group_names), 1])
 
     # add custom cols to electrodes table
     elecs_dset = file['chan_info']['block0_values']
@@ -155,12 +153,12 @@ def run_conversion(
         dict(
             name='low_freq_R2',
             description='R^2 for low frequency band on each electrode',
-            data=low_freqR2
+            data=low_freq_r2
         ),
         dict(
             name='high_freq_R2',
             description='R^2 for high frequency band on each electrode',
-            data=high_freqR2
+            data=high_freq_r2
         )
     )]
 
