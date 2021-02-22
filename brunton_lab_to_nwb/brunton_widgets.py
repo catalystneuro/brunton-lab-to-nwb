@@ -106,7 +106,7 @@ class JointPosPSTHWidget(widgets.HBox):
         ax.plot(tt, group_stats['mean'])
         ax.fill_between(tt, group_stats['lower'], group_stats['upper'], alpha=.2)
         ax.set_xlim([-before, after])
-        ax.set_ylabel('Joint Position ({})'.format(self.spatial_series.unit))
+        ax.set_ylabel('Joint Position (pixels)')
         ax.set_xlabel('time (s)')
         ax.axvline(color=align_line_color)
 
