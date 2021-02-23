@@ -1,6 +1,6 @@
 from pynwb.behavior import Position
 from ipywidgets import widgets, Layout, fixed
-from nwbwidgets.utils.timeseries import align_by_times
+from nwbwidgets.utils.timeseries import align_by_times, get_timeseries_tt
 from nwbwidgets.utils.widgets import interactive_output
 from ndx_events import Events
 
@@ -58,7 +58,8 @@ class JointPosPSTHWidget(widgets.HBox):
         stops = self.events + after
 
         trials = align_by_times(self.spatial_series, starts, stops)
-        zero_ind = before * self.spatial_series.rate
+        tt = get_timeseries_tt(self.spatial_series, istart=self.spatial_series.starting_time)
+        zero_ind = before * (1 / (tt[1] - tt[0]))
         diff_x = trials[:, :, 0].T - trials[:, int(zero_ind), 0]
         diff_y = trials[:, :, 1].T - trials[:, int(zero_ind), 1]
 
@@ -70,7 +71,7 @@ class JointPosPSTHWidget(widgets.HBox):
             return
 
         fig, axs = plt.subplots(1, 1, figsize=figsize)
-        axs.set_title('PSTH for Displacement')
+        axs.set_title('Event-triggered Wrist Displacement')
 
         self.show_psth(distance, axs, before, after)
         return fig
