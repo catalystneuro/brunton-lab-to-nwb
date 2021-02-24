@@ -11,10 +11,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-class BruntonWidgetDashboard(widgets.HBox):
+class JointPosPSTHWidget(widgets.HBox):
     def __init__(self, events: Events,
                  position: Position,
-                 acquisition: ElectricalSeries):
+                 acquisition: ElectricalSeries = None):
         super().__init__()
 
         before_ft = widgets.FloatText(1.5, min=0, description='before (s)', layout=Layout(width='200px'))
@@ -39,7 +39,7 @@ class BruntonWidgetDashboard(widgets.HBox):
         # self.fig = go.FigureWidget()
         # self.ecog_psth(acquisition)
 
-        self.children = [widgets.VBox([widgets.Hbox([before_ft,
+        self.children = [widgets.VBox([widgets.HBox([before_ft,
                                                      after_ft]),
                                        out_fig
                                        ]
@@ -57,10 +57,10 @@ class BruntonWidgetDashboard(widgets.HBox):
         trials = align_by_times(acquisition, starts, stops)
 
         # Discard bad ECoG segments:
-        # Compute log-transformed spectral power density for
-        # each 10 second EcoG segment and discard segments with power below 0
-        # dB or abnormally high power at 115–125 Hz (>3 SD)
-        # compared to all segments
+            # Compute log-transformed spectral power density for
+            # each 10 second EcoG segment and discard segments with power below 0
+            # dB or abnormally high power at 115–125 Hz (>3 SD)
+            # compared to all segments
 
         # Compute log-transformed, time frequency spectral power
         # with Morlet wavelets
@@ -146,7 +146,7 @@ class BruntonWidgetDashboard(widgets.HBox):
         ax.axvline(color=align_line_color)
 
 def process_ecog(acquisition):
-
+    pass
     # Remove DC drift by subtracting the median voltage of each electrode
 
     # Zero artifacts with absolute voltage > 50 interquartile range [IQR].
