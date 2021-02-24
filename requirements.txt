@@ -6,3 +6,4 @@ matplotlib
 ipywidgets
 scipy
 numpy
+plotly
