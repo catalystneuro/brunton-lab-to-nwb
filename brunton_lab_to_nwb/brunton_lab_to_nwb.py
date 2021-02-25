@@ -24,6 +24,7 @@ def run_conversion(
         fpath_in='/Volumes/easystore5T/data/Brunton/subj_01_day_4.h5',
         fpath_out='/Volumes/easystore5T/data/Brunton/subj_01_day_4.nwb',
         events_path='C:/Users/micha/Desktop/Brunton Lab Data/event_times.csv',
+        r2_path='C:/Users/micha/Desktop/Brunton Lab Data/full_model_r2.npy',
         special_chans=SPECIAL_CHANNELS,
         session_description='no description'
 ):
@@ -116,8 +117,14 @@ def run_conversion(
             imp=np.nan,
             location='unknown',
             filtering='250 Hz lowpass',
-            group=groups_map[group_name]
+            group=groups_map[group_name],
         )
+
+    # load r2 values to input into custom cols in electrodes table
+    r2 = np.load(r2_path)
+    low_freq_r2 = np.ravel(r2[int(subject_id)-1, :len(group_names), 0])
+
+    high_freq_r2 = np.ravel(r2[int(subject_id)-1, :len(group_names), 1])
 
     # add custom cols to electrodes table
     elecs_dset = file['chan_info']['block0_values']
@@ -142,6 +149,16 @@ def run_conversion(
             name='good',
             description='good electrodes',
             data=elecs_dset[file_elec_col_names == 'goodChanInds', is_elec].astype(bool)
+        ),
+        dict(
+            name='low_freq_R2',
+            description='R^2 for low frequency band on each electrode',
+            data=low_freq_r2
+        ),
+        dict(
+            name='high_freq_R2',
+            description='R^2 for high frequency band on each electrode',
+            data=high_freq_r2
         )
     )]
 
@@ -216,7 +233,7 @@ def run_conversion(
         io.write(nwbfile)
 
 
-def convert_dir(in_dir, events_path, n_jobs=1, overwrite: bool = False):
+def convert_dir(in_dir, events_path, r2_path, n_jobs=1, overwrite: bool = False):
     all_files = Path(in_dir).iterdir()
     all_data_files = [x.stem for x in all_files if ".h5" in x.suffix]
     nwb_files = [x.stem for x in all_files if ".nwb" in x.suffix]
@@ -228,6 +245,6 @@ def convert_dir(in_dir, events_path, n_jobs=1, overwrite: bool = False):
     out_files = [os.path.join(in_dir, f"{Path(x).stem}.nwb") for x in in_files]
 
     Parallel(n_jobs=n_jobs)(
-        delayed(run_conversion)(fpath_in, fpath_out, events_path)
+        delayed(run_conversion)(fpath_in, fpath_out, events_path, r2_path)
         for fpath_in, fpath_out in zip(in_files, out_files)
     )
