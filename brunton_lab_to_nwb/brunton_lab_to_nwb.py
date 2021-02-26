@@ -82,13 +82,13 @@ def run_conversion(
                 description='Electrooculography for tracking saccades - right',
             )
     ):
-        if kwargs['name'].encode() in special_chans:
+        if kwargs['name'].encode() in channel_labels_dset:
             nwbfile.add_acquisition(
                 TimeSeries(
                     rate=file['f_sample'][()],
                     conversion=np.nan,
                     unit='V',
-                    data=dset[:, channel_labels_dset == kwargs['name'].encode()],
+                    data=dset[:, list(channel_labels_dset).index(kwargs['name'].encode())],
                     **kwargs
                 )
             )
