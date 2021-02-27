@@ -23,7 +23,7 @@ SPECIAL_CHANNELS = (b'EOGL', b'EOGR', b'ECGL', b'ECGR')
 def run_conversion(
         fpath_in='/Volumes/easystore5T/data/Brunton/subj_01_day_4.h5',
         fpath_out='/Volumes/easystore5T/data/Brunton/subj_01_day_4.nwb',
-        events_path='C:/Users/micha/Desktop/Brunton Lab Data/event_times.csv',
+        events_path='/Volumes/easystore5T/data/Brunton/event_times.csv',
         r2_path='C:/Users/micha/Desktop/Brunton Lab Data/full_model_r2.npy',
         special_chans=SPECIAL_CHANNELS,
         session_description='no description'
@@ -39,7 +39,7 @@ def run_conversion(
         identifier=str(uuid.uuid4()),
         session_start_time=datetime.fromtimestamp(file['start_timestamp'][()]),
         subject=Subject(subject_id=subject_id, species="Homo sapiens"),
-        session_id = session
+        session_id=session
     )
 
     # extract electrode groups

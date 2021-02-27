@@ -13,8 +13,10 @@ class JointPosPSTHWidget(widgets.HBox):
     def __init__(self, events: Events, position: Position):
         super().__init__()
 
-        before_ft = widgets.FloatText(.5, min=0, description='before (s)', layout=Layout(width='200px'))
-        after_ft = widgets.FloatText(2., min=0, description='after (s)', layout=Layout(width='200px'))
+        before_ft = widgets.FloatText(
+            .5, min=0, description='before (s)', layout=Layout(width='200px'))
+        after_ft = widgets.FloatText(
+            2., min=0, description='after (s)', layout=Layout(width='200px'))
         # Extract reach arm label from events, format to match key in Position
         # spatial series
         reach_arm = events.description
@@ -24,18 +26,11 @@ class JointPosPSTHWidget(widgets.HBox):
         self.spatial_series = position.spatial_series[reach_arm]
         # Store events in object
         self.events = events.timestamps[:]
-        self.controls = dict(
-            after=after_ft,
-            before=before_ft,
-        )
+        self.controls = dict(after=after_ft, before=before_ft)
 
         out_fig = interactive_output(self.trials_psth, self.controls)
 
-        self.children = [widgets.VBox([before_ft,
-                                       after_ft,
-                                       ]),
-                         out_fig
-                         ]
+        self.children = [widgets.VBox([before_ft, after_ft]), out_fig]
 
     def trials_psth(self, before=0., after=1., figsize=(12, 12)):
         """
@@ -119,6 +114,7 @@ class JointPosPSTHWidget(widgets.HBox):
         ax.set_ylabel('Joint Position ({})'.format(self.spatial_series.unit))
         ax.set_xlabel('time (s)')
         ax.axvline(color=align_line_color)
+
 
 def compute_speed(pos, pos_tt):
     """Compute boolean of whether the speed of the animal was above a threshold
