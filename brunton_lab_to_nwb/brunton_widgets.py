@@ -1,14 +1,42 @@
 from pynwb.behavior import Position
 from pynwb.ecephys import ElectricalSeries
+from pynwb.file import NWBFile
 from ipywidgets import widgets, Layout
+
+from nwbwidgets.ecephys import ElectricalSeriesWidget
 from nwbwidgets.utils.timeseries import align_by_times, get_timeseries_tt
 from nwbwidgets.utils.widgets import interactive_output
+from nwbwidgets.brains import HumanElectrodesPlotlyWidget
 from ndx_events import Events
 
 import plotly.graph_objects as go
 
 import numpy as np
 import matplotlib.pyplot as plt
+
+
+class BruntonDashboard(widgets.VBox):
+    def __init__(self, nwb_file: NWBFile):
+        box_layout = Layout(justify_content='space-between',
+                            align_content='space-between',
+                            align_items='center',
+                            flex_basis='auto',
+                            )
+        super().__init__(layout=box_layout)
+
+        psth_widget = JointPosPSTHWidget(nwb_file.processing['behavior'].data_interfaces['ReachEvents'],
+                                         nwb_file.processing['behavior'].data_interfaces['Position'])
+        brains_widget = HumanElectrodesPlotlyWidget(nwb_file.electrodes)
+        ecog_widget = ElectricalSeriesWidget(nwb_file.acquisition['ElectricalSeries'])
+
+
+        self.children = [widgets.HBox([psth_widget,
+                                      ecog_widget
+                                       ],
+                                      layout=box_layout
+                                      ),
+                         brains_widget,
+                        ]
 
 
 class JointPosPSTHWidget(widgets.HBox):
@@ -39,7 +67,7 @@ class JointPosPSTHWidget(widgets.HBox):
         # self.fig = go.FigureWidget()
         # self.ecog_psth(acquisition)
 
-        self.children = [widgets.VBox([widgets.HBox([before_ft,
+        self.children = [widgets.HBox([widgets.VBox([before_ft,
                                                      after_ft]),
                                        out_fig
                                        ]
