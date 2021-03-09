@@ -9,6 +9,5 @@ numpy
 plotly
 nwbwidgets
 joblib
-build-essential
 h5py
 
