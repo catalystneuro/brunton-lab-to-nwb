@@ -9,7 +9,6 @@ numpy
 plotly
 nwbwidgets
 joblib
-python-dev
 libhdf5-dev
 build-essential
 h5py
