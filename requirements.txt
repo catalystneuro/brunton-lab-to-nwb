@@ -9,5 +9,8 @@ numpy
 plotly
 nwbwidgets
 joblib
-conda-forge -y hdf5=1.12.0
+python-dev
+libhdf5-dev
+build-essential
 h5py
+
