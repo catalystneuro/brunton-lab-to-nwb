@@ -8,8 +8,7 @@ scipy
 numpy
 plotly
 joblib
+h5py
 git+git://github.com/NeurodataWithoutBorders/nwb-jupyter-widgets@brunton_brains
-git+git://github.com/NeurodataWithoutBorders/pynwb.git@ros3v2
-git+git://github.com/satra/h5py.git@enh-ros3
 
 
