@@ -7,10 +7,10 @@ ipywidgets
 scipy
 numpy
 plotly
+joblib
 git+git://github.com/NeurodataWithoutBorders/nwb-jupyter-widgets@brunton_brains
 git+git://github.com/NeurodataWithoutBorders/pynwb.git@ros3v2
 git+git://github.com/hdmf-dev/hdmf
 git+git://github.com/satra/h5py.git@enh-ros3
-joblib
-h5py
+
 
