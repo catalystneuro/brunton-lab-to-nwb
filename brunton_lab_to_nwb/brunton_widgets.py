@@ -5,6 +5,7 @@ from ipywidgets import widgets, Layout
 
 from nwbwidgets.ecephys import ElectricalSeriesWidget
 from nwbwidgets.utils.timeseries import align_by_times, get_timeseries_tt
+from nwbwidgets.controllers import StartAndDurationController
 from nwbwidgets.utils.widgets import interactive_output
 from nwbwidgets.brains import HumanElectrodesPlotlyWidget
 from ndx_events import Events
@@ -24,11 +25,29 @@ class BruntonDashboard(widgets.VBox):
                             )
         super().__init__(layout=box_layout)
 
-        psth_widget = JointPosPSTHWidget(nwb_file.processing['behavior'].data_interfaces['ReachEvents'],
-                                         nwb_file.processing['behavior'].data_interfaces['Position'])
-        brains_widget = HumanElectrodesPlotlyWidget(nwb_file.electrodes)
-        ecog_widget = ElectricalSeriesWidget(nwb_file.acquisition['ElectricalSeries'])
+        # Start time and duration controller
+        self.tt = get_timeseries_tt(self.spatial_series, istart=self.spatial_series.starting_time)
+        self.time_window_controller = StartAndDurationController(
+            tmin=tt[0],
+            tmax=tt[-1],
+            start=0,
+            duration=5,
+        )
+        frame_ind = np.searchsorted(self.tt, self.time_window_controller.start)
 
+        self.position = nwb_file.processing['behavior'].data_interfaces['Position']
+        self.events = nwb_file.processing['behavior'].data_interfaces['ReachEvents']
+
+        self.psth_widget = JointPosPSTHWidget(self.events, self.position,
+                                              foreign_time_window_controller = self.time_window_controller)
+        self.brains_widget = HumanElectrodesPlotlyWidget(nwb_file.electrodes)
+        self.ecog_widget = ElectricalSeriesWidget(nwb_file.acquisition['ElectricalSeries'],
+                                                  foreign_time_window_controller = self.time_window_controller)
+        self.skeleton_widget = SkeletonPlot(nwb_file.processing['behavior'].data_interfaces['Position'],
+                                            frame_ind)
+
+        # Updates list of valid spike times at each change in time range
+        self.time_window_controller.observe(self.updated_time_range)
 
         self.children = [widgets.HBox([psth_widget,
                                       ecog_widget
@@ -37,6 +56,56 @@ class BruntonDashboard(widgets.VBox):
                                       ),
                          brains_widget,
                         ]
+
+    def updated_time_range(self, change=None):
+        """Operations to run whenever time range gets updated"""
+        self.skeleton_widget.fig.data = None
+        new_frame_ind = np.searchsorted(self.tt, self.time_window_controller.value[0])
+        self.skeleton_widget.plot_skeleton(self.position,
+                                           new_frame_ind)
+
+class SkeletonPlot(widgets.Hbox):
+    def __init__(self, position: Position,
+                 new_frame_ind):
+        super().__init__()
+
+        self.fig = go.FigureWidget()
+        self.plot_skeleton(position, frame_ind)
+
+        self.children = [self.fig]
+
+    def plot_skeleton(self, position, frame_ind):
+
+        l_ear = position['L_Ear'].data[frame_ind]
+        l_elbow = position['L_Elbow'].data[frame_ind]
+        l_shoulder = position['L_Shoulder'].data[frame_ind]
+        l_wrist = position['L_Wrist'].data[frame_ind]
+        nose = position['Nose'].data[frame_ind]
+        r_ear = position['R_Ear'].data[frame_ind]
+        r_elbow = position['r_elbow'].data[frame_ind]
+        r_shoulder = position['r_shoulder'].data[frame_ind]
+        r_wrist = position['r_wrist'].data[frame_ind]
+
+        skeleton_vector = np.vstack([l_wrist,
+                                     l_elbow,
+                                     l_shoulder,
+                                     l_ear,
+                                     nose,
+                                     r_ear,
+                                     r_shoulder,
+                                     r_elbow,
+                                     r_wrist
+                                     ]
+                                    )
+
+        self.fig.add_trace(
+            go.Scatter(x = skeleton_vector[:,0],
+                       y = skeleton_vector[:,1],
+                       mode='lines+markers',
+                       marker_color='blue',
+                       marker_size=4,
+                       )
+        )
 
 
 class JointPosPSTHWidget(widgets.HBox):
