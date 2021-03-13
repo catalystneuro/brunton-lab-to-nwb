@@ -1,4 +1,3 @@
-git clone https://github.com/h5py/h5py.git
 conda-forge -y python=3.7 hdf5=1.12.0 jupyter pip
 pip install nwbwidgets
 pip install git+https://github.com/NeurodataWithoutBorders/pynwb
