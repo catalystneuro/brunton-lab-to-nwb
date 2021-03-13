@@ -1,9 +1,8 @@
 git clone https://github.com/h5py/h5py.git
-conda create -n stream_nwb -c conda-forge -y python=3.7 hdf5=1.12.0 jupyter pip
-conda activate stream_nwb
+conda-forge -y python=3.7 hdf5=1.12.0 jupyter pip
 pip install nwbwidgets
 pip install git+https://github.com/NeurodataWithoutBorders/pynwb
 pip install git+https://github.com/hdmf-dev/hdmf
 git clone https://github.com/satra/h5py.git
 cd h5py
-HDF5_DIR=~/home/main/anaconda2/envs/stream_nwb/ pip install --force-reinstall --no-binary=h5py .
+HDF5_DIR=/srv/conda/envs/stream_nwb/ pip install --force-reinstall --no-binary=h5py .
