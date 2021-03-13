@@ -39,6 +39,7 @@ class BruntonDashboard(widgets.VBox):
         self.events = nwb_file.processing['behavior'].data_interfaces['ReachEvents']
 
         self.psth_widget = JointPosPSTHWidget(self.events, self.position,
+                                              nwb_file.acquisition['ElectricalSeries']
                                               foreign_time_window_controller = self.time_window_controller)
         self.brains_widget = HumanElectrodesPlotlyWidget(nwb_file.electrodes)
         self.ecog_widget = ElectricalSeriesWidget(nwb_file.acquisition['ElectricalSeries'],
