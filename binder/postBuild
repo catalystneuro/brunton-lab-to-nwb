@@ -1,7 +1,16 @@
-conda-forge -y python=3.7 hdf5=1.12.0 jupyter pip
-pip install nwbwidgets
-pip install git+https://github.com/NeurodataWithoutBorders/pynwb
+#!/bin/bash
+
+conda install --channel=conda-forge python=3.7 pip hdf5=1.12.0 notebook voila
+export HDF5_DIR=/srv/conda/envs/notebook
+echo $HDF5_DIR
+
 pip install git+https://github.com/hdmf-dev/hdmf
-git clone https://github.com/satra/h5py.git
-cd h5py
-HDF5_DIR=/srv/conda/envs/stream_nwb/ pip install --force-reinstall --no-binary=h5py .
+pip install git+https://github.com/NeurodataWithoutBorders/pynwb
+pip install nwbwidgets
+pip install jupyter_contrib_nbextensions
+
+pip install git+https://github.com/h5py/h5py
+pip install --force-reinstall --no-binary=h5py
+
+jupyter contrib nbextension install --user
+jupyter nbextension enable --py widgetsnbextension
