@@ -4,7 +4,8 @@ from pynwb.file import NWBFile
 from ipywidgets import widgets, Layout
 
 from nwbwidgets.ecephys import ElectricalSeriesWidget
-from nwbwidgets.utils.timeseries import align_by_times, get_timeseries_tt
+from nwbwidgets.utils.timeseries import align_by_times, get_timeseries_tt, timeseries_time_to_ind
+from nwbwidgets.timeseries import SeparateTracesPlotlyWidget
 from nwbwidgets.controllers import StartAndDurationController
 from nwbwidgets.utils.widgets import interactive_output
 from nwbwidgets.brains import HumanElectrodesPlotlyWidget
@@ -25,67 +26,132 @@ class BruntonDashboard(widgets.VBox):
                             )
         super().__init__(layout=box_layout)
 
+
         # Start time and duration controller
-        self.tt = get_timeseries_tt(self.spatial_series, istart=self.spatial_series.starting_time)
-        self.time_window_controller = StartAndDurationController(
-            tmin=tt[0],
-            tmax=tt[-1],
+        # To-do: Generalize this so that any field within position can be referenced to get starting time
+        spatial_series = nwb_file.processing['behavior'].data_interfaces['Position']['L_Ear']
+
+        self.tt = get_timeseries_tt(spatial_series, istart=spatial_series.starting_time)
+        self.time_trace_window_controller = StartAndDurationController(
+            tmax=self.tt[-1],
+            tmin=self.tt[0],
             start=0,
-            duration=5,
+            duration=5
         )
-        frame_ind = np.searchsorted(self.tt, self.time_window_controller.start)
+        self.event_trace_window_controller = StartAndDurationController(
+            tmax=self.tt[-1],
+            tmin=self.tt[0],
+            start=0,
+            duration=5
+        )
 
         self.position = nwb_file.processing['behavior'].data_interfaces['Position']
         self.events = nwb_file.processing['behavior'].data_interfaces['ReachEvents']
 
-        self.psth_widget = JointPosPSTHWidget(self.events, self.position,
-                                              nwb_file.acquisition['ElectricalSeries']
-                                              foreign_time_window_controller = self.time_window_controller)
+        self.psth_widget = PSTHWidget(
+            self.events,
+            self.position,
+            nwb_file.acquisition['ElectricalSeries'],
+            foreign_time_window_controller=self.event_trace_window_controller
+        )
         self.brains_widget = HumanElectrodesPlotlyWidget(nwb_file.electrodes)
-        self.ecog_widget = ElectricalSeriesWidget(nwb_file.acquisition['ElectricalSeries'],
-                                                  foreign_time_window_controller = self.time_window_controller)
-        self.skeleton_widget = SkeletonPlot(nwb_file.processing['behavior'].data_interfaces['Position'],
-                                            frame_ind)
+        self.ecog_widget = ElectricalSeriesWidget(
+            nwb_file.acquisition['ElectricalSeries'],
+            foreign_time_window_controller=self.time_trace_window_controller
+        )
+        self.skeleton_widget = SkeletonPlot(
+            nwb_file.processing['behavior'].data_interfaces['Position'],
+            foreign_time_window_controller=self.time_trace_window_controller
+        )
+        self.jointpos_widget = SeparateTracesPlotlyWidget(
+            nwb_file.processing['behavior'].data_interfaces['Position']['L_Wrist'],
+            foreign_time_window_controller=self.time_trace_window_controller
+        )
+
+        tab1_hbox_header = widgets.HBox([self.time_trace_window_controller])
+        tab1_row1_widgets = widgets.HBox([self.skeleton_widget,
+                                          self.jointpos_widget,
+                                          ],
+                                         layout=box_layout
+                                         )
+        tab1_row2_widgets = widgets.HBox([self.ecog_widget
+                                          ],
+                                         layout=box_layout
+                                         )
+
+        tab2_hbox_header = widgets.HBox([self.event_trace_window_controller])
+        tab2_row1_widgets = widgets.HBox([self.psth_widget,
+                                          self.brains_widget,
+                                          ],
+                                         layout=box_layout
+                                         )
+        tab1 = widgets.VBox([tab1_hbox_header,
+                             tab1_row1_widgets,
+                             tab1_row2_widgets])
+        tab2 = widgets.VBox([tab2_hbox_header,
+                             tab2_row1_widgets])
+        accordion = widgets.Accordion(children=[tab1, tab2], selected_index=None)
+        accordion.set_title(0, 'Time Trace Plots')
+        accordion.set_title(1, 'Event-triggered Plots')
+        self.children = [accordion]
+
+
+class SkeletonPlot(widgets.VBox):
+    def __init__(self, position: Position,
+                 foreign_time_window_controller: StartAndDurationController  = None):
+        super().__init__()
+
+        self.position = position
+
+        # To-do: Generalize this so that any field within position can be referenced to get starting time
+        spatial_series = position.spatial_series['L_Ear']
+
+        self.tt = get_timeseries_tt(spatial_series, istart=spatial_series.starting_time)
+        if foreign_time_window_controller is None:
+            self.time_window_controller = StartAndDurationController(
+                tmax=self.tt[-1],
+                tmin=self.tt[0],
+                start=0,
+                duration=5
+            )
+            frame_ind = np.searchsorted(self.tt, self.time_window_controller.value[0])
+            show_time_controller = True
+        else:
+            show_time_controller = False
+            self.time_window_controller = foreign_time_window_controller
+            frame_ind = np.searchsorted(self.tt, self.time_window_controller.value[0])
+
+        self.fig = go.FigureWidget()
+        self.plot_skeleton(frame_ind)
 
         # Updates list of valid spike times at each change in time range
         self.time_window_controller.observe(self.updated_time_range)
 
-        self.children = [widgets.HBox([psth_widget,
-                                      ecog_widget
-                                       ],
-                                      layout=box_layout
-                                      ),
-                         brains_widget,
-                        ]
+        if show_time_controller:
+            self.children = [self.time_window_controller,
+                             self.fig
+                             ]
+        else:
+            self.children = [self.fig]
 
     def updated_time_range(self, change=None):
         """Operations to run whenever time range gets updated"""
-        self.skeleton_widget.fig.data = None
-        new_frame_ind = np.searchsorted(self.tt, self.time_window_controller.value[0])
-        self.skeleton_widget.plot_skeleton(self.position,
-                                           new_frame_ind)
+        self.fig.data = None
+        if 'new' in change:
+            frame_ind = np.searchsorted(self.tt, self.time_window_controller.value[0])
+            self.plot_skeleton(frame_ind)
 
-class SkeletonPlot(widgets.Hbox):
-    def __init__(self, position: Position,
-                 new_frame_ind):
-        super().__init__()
+    def plot_skeleton(self, frame_ind):
 
-        self.fig = go.FigureWidget()
-        self.plot_skeleton(position, frame_ind)
-
-        self.children = [self.fig]
-
-    def plot_skeleton(self, position, frame_ind):
-
-        l_ear = position['L_Ear'].data[frame_ind]
-        l_elbow = position['L_Elbow'].data[frame_ind]
-        l_shoulder = position['L_Shoulder'].data[frame_ind]
-        l_wrist = position['L_Wrist'].data[frame_ind]
-        nose = position['Nose'].data[frame_ind]
-        r_ear = position['R_Ear'].data[frame_ind]
-        r_elbow = position['r_elbow'].data[frame_ind]
-        r_shoulder = position['r_shoulder'].data[frame_ind]
-        r_wrist = position['r_wrist'].data[frame_ind]
+        l_ear = self.position['L_Ear'].data[frame_ind]
+        l_elbow = self.position['L_Elbow'].data[frame_ind]
+        l_shoulder = self.position['L_Shoulder'].data[frame_ind]
+        l_wrist = self.position['L_Wrist'].data[frame_ind]
+        nose = self.position['Nose'].data[frame_ind]
+        r_ear = self.position['R_Ear'].data[frame_ind]
+        r_elbow = self.position['R_Elbow'].data[frame_ind]
+        r_shoulder = self.position['R_Shoulder'].data[frame_ind]
+        r_wrist = self.position['R_Wrist'].data[frame_ind]
 
         skeleton_vector = np.vstack([l_wrist,
                                      l_elbow,
@@ -98,21 +164,37 @@ class SkeletonPlot(widgets.Hbox):
                                      r_wrist
                                      ]
                                     )
+        skeleton_text = ['l_wrist',
+                         'l_elbow',
+                         'l_shoulder',
+                         'l_ear',
+                         'nose',
+                         'r_ear',
+                         'r_shoulder',
+                         'r_elbow',
+                         'r_wrist'
+                         ]
+
 
         self.fig.add_trace(
             go.Scatter(x = skeleton_vector[:,0],
                        y = skeleton_vector[:,1],
-                       mode='lines+markers',
+                       mode='lines+markers+text',
                        marker_color='blue',
-                       marker_size=4,
+                       marker_size=12,
+                       text= skeleton_text,
+                       hoverinfo='text',
+                       textposition="bottom center"
                        )
         )
 
 
-class JointPosPSTHWidget(widgets.HBox):
+class PSTHWidget(widgets.VBox):
     def __init__(self, events: Events,
                  position: Position,
-                 acquisition: ElectricalSeries = None):
+                 acquisition: ElectricalSeries = None,
+                 foreign_time_window_controller : StartAndDurationController = None,
+                 ):
         super().__init__()
 
         before_ft = widgets.FloatText(1.5, min=0, description='before (s)', layout=Layout(width='200px'))
@@ -124,52 +206,62 @@ class JointPosPSTHWidget(widgets.HBox):
         reach_arm = list(reach_arm)
         reach_arm = '_'.join(reach_arm)
         self.spatial_series = position.spatial_series[reach_arm]
+
+        if foreign_time_window_controller is None:
+            self.tt = get_timeseries_tt(self.spatial_series, istart=self.spatial_series.starting_time)
+            self.time_window_controller = StartAndDurationController(
+                tmax=self.tt[-1],
+                tmin=self.tt[0],
+                start=0,
+                duration=5
+            )
+            show_time_controller = True
+        else:
+            self.time_window_controller = foreign_time_window_controller
+            show_time_controller = False
+
         # Store events in object
         self.events = events.timestamps[:]
 
         self.controls = dict(
             after=after_ft,
             before=before_ft,
+            time_window=self.time_window_controller
         )
 
+
         out_fig = interactive_output(self.trials_psth, self.controls)
+        # self.time_window_controller.observe(self.updated_time_range)
 
         # self.fig = go.FigureWidget()
         # self.ecog_psth(acquisition)
+        if show_time_controller:
+            header_row = widgets.HBox([before_ft,
+                                       after_ft,
+                                       self.time_window_controller
+                                      ]
+                                     )
+        else:
+            header_row = widgets.HBox([before_ft,
+                                       after_ft,
+                                      ]
+                                     )
 
-        self.children = [widgets.HBox([widgets.VBox([before_ft,
-                                                     after_ft]),
-                                       out_fig
-                                       ]
-                                      ),
+        self.children = [header_row,
+                         out_fig
+                         ]
                          # widgets.Vbox([self.fig
                          #               ]
                          #              )
-                         ]
-
-    def ecog_psth(self, acquisition, before=1.5, after=1.5):
-
-        starts = self.events - before
-        stops = self.events + after
-
-        trials = align_by_times(acquisition, starts, stops)
-
-        # Discard bad ECoG segments:
-            # Compute log-transformed spectral power density for
-            # each 10 second EcoG segment and discard segments with power below 0
-            # dB or abnormally high power at 115–125 Hz (>3 SD)
-            # compared to all segments
-
-        # Compute log-transformed, time frequency spectral power
-        # with Morlet wavelets
-
-        # Baseline subtract each segment using a
-        # baseline defined as 1.5–1 seconds before each movement initiation event
-
-        # self.fig.add_trace()
 
 
-    def trials_psth(self, before=1.5, after=1.5, figsize=(12, 12)):
+    # def updated_time_range(self, change=None):
+    #     """Operations to run whenever time range gets updated"""
+    #     plt.close()
+    #     if 'new' in change:
+    #         self.trials_psth(self.controls['before'].value, self.controls['after'].value)
+
+    def trials_psth(self, before=1.5, after=1.5, time_window=[0, 5], figsize=(6, 6)):
         """
         Trial data by event times and plot
 
@@ -186,21 +278,28 @@ class JointPosPSTHWidget(widgets.HBox):
         matplotlib.Figure
 
         """
-        starts = self.events - before
-        stops = self.events + after
+        mask = (self.events > time_window[0]) \
+               & (self.events < time_window[1])
+        active_events = self.events[mask]
+        starts = active_events - before
+        stops = active_events + after
 
         trials = align_by_times(self.spatial_series, starts, stops)
+
+        if trials.size == 0:
+            return print('No trials present')
+
         tt = get_timeseries_tt(self.spatial_series, istart=self.spatial_series.starting_time)
         zero_ind = before * (1 / (tt[1] - tt[0]))
-        diff_x = trials[:, :, 0].T - trials[:, int(zero_ind), 0]
-        diff_y = trials[:, :, 1].T - trials[:, int(zero_ind), 1]
-
-        diffs = np.dstack([diff_x, diff_y])
-        distance = np.linalg.norm(diffs, axis=2)
-
-        if trials is None:
-            self.children = [widgets.HTML('No trials present')]
-            return
+        if len(np.shape(trials)) == 3:
+            diff_x = trials[:, :, 0].T - trials[:, int(zero_ind), 0]
+            diff_y = trials[:, :, 1].T - trials[:, int(zero_ind), 1]
+            diffs = np.dstack([diff_x, diff_y])
+            distance = np.linalg.norm(diffs, axis=2)
+        elif len(np.shape(trials)) == 2:
+            diff_x = trials[:, :].T - trials[:, int(zero_ind)]
+        elif len(np.shape(trials)) == 1:
+            diff_x = trials
 
         fig, axs = plt.subplots(1, 1, figsize=figsize)
         axs.set_title('Event-triggered Wrist Displacement')
@@ -242,6 +341,30 @@ class JointPosPSTHWidget(widgets.HBox):
         ax.set_ylabel('Joint Position (pixels)')
         ax.set_xlabel('time (s)')
         ax.axvline(color=align_line_color)
+
+    def ecog_psth(self, acquisition, before=1.5, after=1.5):
+
+        starts = self.events - before
+        stops = self.events + after
+
+        trials = align_by_times(acquisition, starts, stops)
+
+        # Discard bad ECoG segments:
+            # Compute log-transformed spectral power density for
+            # each 10 second EcoG segment and discard segments with power below 0
+            # dB or abnormally high power at 115–125 Hz (>3 SD)
+            # compared to all segments
+
+        # Compute log-transformed, time frequency spectral power
+        # with Morlet wavelets
+
+        # Baseline subtract each segment using a
+        # baseline defined as 1.5–1 seconds before each movement initiation event
+
+        # self.fig.add_trace()
+
+
+
 
 def process_ecog(acquisition):
     pass
