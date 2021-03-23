@@ -8,6 +8,7 @@ pip install git+https://github.com/hdmf-dev/hdmf
 pip install git+https://github.com/NeurodataWithoutBorders/pynwb
 pip install nwbwidgets
 pip install jupyter_contrib_nbextensions
+pip install joblib
 
 pip install git+https://github.com/h5py/h5py
 pip install --force-reinstall --no-binary=h5py

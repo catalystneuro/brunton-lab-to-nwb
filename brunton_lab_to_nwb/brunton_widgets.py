@@ -193,6 +193,19 @@ class SkeletonPlot(widgets.VBox):
                        )
         )
 
+        self.fig.update_layout(
+            xaxis = dict(
+                    showgrid=False,  # thin lines in the background
+                    zeroline=False,  # thick line at x=0
+                    visible=False,  # numbers below
+                    ),
+            yaxis = dict(
+                    showgrid=False,  # thin lines in the background
+                    zeroline=False,  # thick line at x=0
+                    visible=False,  # numbers below
+                    )
+        )
+
 
 class ETAWidget(widgets.VBox):
     def __init__(self, events: Events,
