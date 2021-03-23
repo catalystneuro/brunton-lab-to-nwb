@@ -13,6 +13,7 @@ from nwbwidgets.brains import HumanElectrodesPlotlyWidget
 from ndx_events import Events
 
 import plotly.graph_objects as go
+from plotly.colors import DEFAULT_PLOTLY_COLORS
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -107,10 +108,12 @@ class SkeletonPlot(widgets.VBox):
         super().__init__()
 
         self.position = position
+        joint_keys = list(position.spatial_series.keys())
+        self.joint_colors = []
+        for (joint, c) in zip(joint_keys, DEFAULT_PLOTLY_COLORS):
+            self.joint_colors.append(c)
 
-        # To-do: Generalize this so that any field within position can be referenced to get starting time
-        spatial_series = position.spatial_series['L_Ear']
-
+        spatial_series = position.spatial_series[joint_keys[0]]
         self.tt = get_timeseries_tt(spatial_series, istart=spatial_series.starting_time)
         if foreign_time_window_controller is None:
             self.time_window_controller = StartAndDurationController(
@@ -148,46 +151,29 @@ class SkeletonPlot(widgets.VBox):
 
     def plot_skeleton(self, frame_ind):
 
-        l_ear = self.position['L_Ear'].data[frame_ind]
-        l_elbow = self.position['L_Elbow'].data[frame_ind]
-        l_shoulder = self.position['L_Shoulder'].data[frame_ind]
-        l_wrist = self.position['L_Wrist'].data[frame_ind]
-        nose = self.position['Nose'].data[frame_ind]
-        r_ear = self.position['R_Ear'].data[frame_ind]
-        r_elbow = self.position['R_Elbow'].data[frame_ind]
-        r_shoulder = self.position['R_Shoulder'].data[frame_ind]
-        r_wrist = self.position['R_Wrist'].data[frame_ind]
+        joint_keys = ['L_Wrist',
+                      'L_Elbow',
+                      'L_Shoulder',
+                      'L_Ear',
+                      'Nose',
+                      'R_Ear',
+                      'R_Shoulder',
+                      'R_Elbow',
+                      'R_Wrist'
+                      ]
+        skeleton_vector = []
+        for joint in joint_keys:
+            skeleton_vector.append(self.position[joint].data[frame_ind])
 
-        skeleton_vector = np.vstack([l_wrist,
-                                     l_elbow,
-                                     l_shoulder,
-                                     l_ear,
-                                     nose,
-                                     r_ear,
-                                     r_shoulder,
-                                     r_elbow,
-                                     r_wrist
-                                     ]
-                                    )
-        skeleton_text = ['l_wrist',
-                         'l_elbow',
-                         'l_shoulder',
-                         'l_ear',
-                         'nose',
-                         'r_ear',
-                         'r_shoulder',
-                         'r_elbow',
-                         'r_wrist'
-                         ]
-
+        skeleton_vector = np.vstack(skeleton_vector)
 
         self.fig.add_trace(
             go.Scatter(x=-skeleton_vector[:,0],
                        y=-skeleton_vector[:,1],
                        mode='lines+markers+text',
-                       marker_color='blue',
+                       marker_color=self.joint_colors,
                        marker_size=12,
-                       text= skeleton_text,
+                       text= joint_keys,
                        hoverinfo='text',
                        textposition="bottom center"
                        )
