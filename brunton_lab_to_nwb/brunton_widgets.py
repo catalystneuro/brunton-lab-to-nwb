@@ -5,8 +5,13 @@ from ipywidgets import widgets, Layout
 
 from nwbwidgets.base import lazy_tabs
 from nwbwidgets.ecephys import ElectricalSeriesWidget
-from nwbwidgets.utils.timeseries import align_by_times, get_timeseries_tt, timeseries_time_to_ind
-from nwbwidgets.timeseries import SeparateTracesPlotlyWidget
+from nwbwidgets.utils.timeseries import (
+    align_by_times,
+    get_timeseries_tt,
+    timeseries_time_to_ind,
+    get_timeseries_in_units,
+)
+from nwbwidgets.timeseries import SingleTraceWidget
 from nwbwidgets.controllers import StartAndDurationController
 from nwbwidgets.utils.widgets import interactive_output
 from nwbwidgets.brains import HumanElectrodesPlotlyWidget
@@ -14,6 +19,7 @@ from ndx_events import Events
 
 import plotly.graph_objects as go
 from plotly.colors import DEFAULT_PLOTLY_COLORS
+from plotly.subplots import make_subplots
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -42,7 +48,7 @@ class BruntonDashboard(widgets.VBox):
             reach_arm = list(reach_arm)
             reach_arm = '_'.join(reach_arm)
 
-            jointpos_widget = SeparateTracesPlotlyWidget(
+            jointpos_widget = AllPositionTracesPlotlyWidget(
             nwb_file.processing['behavior'].data_interfaces['Position'][reach_arm],
             foreign_time_window_controller = time_trace_window_controller
             )
@@ -55,18 +61,19 @@ class BruntonDashboard(widgets.VBox):
                 foreign_time_window_controller=time_trace_window_controller
             )
             tab1_hbox_header = widgets.HBox([time_trace_window_controller])
-            tab1_row1_widgets = widgets.HBox([skeleton_widget,
-                                              jointpos_widget,
+            tab1_col1_widgets = widgets.VBox([skeleton_widget,
+                                              ecog_widget
+
                                               ],
                                              layout=box_layout
                                              )
-            tab1_row2_widgets = widgets.HBox([ecog_widget
+            tab1_col2_widgets = widgets.VBox([jointpos_widget,
                                               ],
                                              layout=box_layout
                                              )
+            tab1_body = widgets.HBox([tab1_col1_widgets, tab1_col2_widgets])
             tab1 = widgets.VBox([tab1_hbox_header,
-                                 tab1_row1_widgets,
-                                 tab1_row2_widgets])
+                                 tab1_body])
             return tab1
 
         def tab2(nwb_file):
@@ -102,6 +109,98 @@ class BruntonDashboard(widgets.VBox):
                    }
         tabs = lazy_tabs(in_dict, nwb_file)
         self.children = [tabs]
+
+
+class AllPositionTracesPlotlyWidget(SingleTraceWidget):
+    def set_out_fig(self):
+
+        timeseries = self.controls["timeseries"].value
+
+        time_window = self.controls["time_window"].value
+
+        istart = timeseries_time_to_ind(timeseries, time_window[0])
+        istop = timeseries_time_to_ind(timeseries, time_window[1])
+
+        data, units = get_timeseries_in_units(timeseries, istart, istop)
+
+        tt = get_timeseries_tt(timeseries, istart, istop)
+
+        positions = self.timeseries.get_ancestor('Position')
+        # position_keys = list(positions.spatial_series.keys())
+        position_keys = ['L_Wrist',
+                         'L_Elbow',
+                         'L_Shoulder',
+                         'L_Ear',
+                         'Nose',
+                         'R_Ear',
+                         'R_Shoulder',
+                         'R_Elbow',
+                         'R_Wrist'
+                         ]
+        position_colors = []
+        for (joint, c) in zip(position_keys, DEFAULT_PLOTLY_COLORS):
+            position_colors.append(c)
+        position_colors = {key: color for key, color in zip(position_keys, position_colors)}
+        position_keys = position_keys[0:3] + [position_keys[4]] + position_keys[6:]
+        data_dim = data.shape[1]
+        subplot_titles = np.repeat(position_keys, data_dim)
+        if (len(data.shape) > 1) | len(position_keys) > 1:
+            self.out_fig = go.FigureWidget(make_subplots(rows=data.shape[1] * len(position_keys), cols=1,
+                                                         subplot_titles= subplot_titles))
+            self.out_fig['layout'].update(width=300, height=1000)
+            for k, key in enumerate(position_keys):
+                data = positions[key].data[:]
+                color = position_colors[key]
+                for i, (yy, xyz) in enumerate(zip(data.T, ("x", "y", "z"))):
+                    self.out_fig.add_trace(go.Scattergl(x=tt,
+                                                        y=yy,
+                                                        marker_color=color), row=(k * data_dim) + i + 1, col=1)
+                    if units:
+                        yaxes_label = f"{xyz} ({units})"
+                    else:
+                        yaxes_label = xyz
+                    self.out_fig.update_yaxes(title_text=yaxes_label, row=(k * data_dim) + i + 1, col=1)
+                    self.out_fig.update_xaxes(
+                        showticklabels=False,
+                        row=(k * data_dim) + i + 1,
+                        col=1
+                    )
+                self.out_fig['layout']['annotations'][(k * data_dim) + i]['text'] = f'{key}'
+            self.out_fig.update_xaxes(
+                showticklabels=True,
+                row=(k * data_dim) + i + 1,
+                col=1
+            )
+
+            self.out_fig.update_xaxes(title_text="time (s)", row=(k * data_dim) + i + 1, col=1)
+
+        else:
+            self.out_fig = go.FigureWidget()
+            self.out_fig.add_trace(go.Scatter(x=tt, y=data))
+            self.out_fig.update_xaxes(title_text="time (s)")
+
+        def on_change(change):
+            time_window = self.controls["time_window"].value
+            istart = timeseries_time_to_ind(timeseries, time_window[0])
+            istop = timeseries_time_to_ind(timeseries, time_window[1])
+
+            tt = get_timeseries_tt(timeseries, istart, istop)
+            yy, units = get_timeseries_in_units(timeseries, istart, istop)
+
+            with self.out_fig.batch_update():
+                if len(yy.shape) == 1:
+                    self.out_fig.data[0].x = tt
+                    self.out_fig.data[0].y = yy
+                else:
+                    for k, key in enumerate(position_keys):
+                        data = positions[key]
+                        yy, units = get_timeseries_in_units(data, istart, istop)
+
+                        for i, dd in enumerate(yy.T):
+                            self.out_fig.data[(k * data_dim) + i].x = tt
+                            self.out_fig.data[(k * data_dim) + i].y = dd
+
+        self.controls["time_window"].observe(on_change)
 
 
 class SkeletonPlot(widgets.VBox):
