@@ -10,6 +10,7 @@ pip install git+https://github.com/NeurodataWithoutBorders/nwb-jupyter-widgets@b
 pip install jupyter_contrib_nbextensions
 pip install joblib
 pip install lazy_ops
+pip install nilearn
 pip install --no-deps ndx-events
 
 pip install git+https://github.com/h5py/h5py
