@@ -28,9 +28,6 @@ class BruntonDashboard(widgets.VBox):
                             )
         super().__init__(layout=box_layout)
 
-        # Start time and duration controller
-        # To-do: Generalize this so that any field within position can be referenced to get starting time
-
         def tab1(nwb_file):
             spatial_series = nwb_file.processing['behavior'].data_interfaces['Position']['L_Ear']
             tt = get_timeseries_tt(spatial_series, istart=spatial_series.starting_time)
@@ -40,8 +37,13 @@ class BruntonDashboard(widgets.VBox):
                 start=0,
                 duration=5
             )
+            reach_arm = nwb_file.processing['behavior'].data_interfaces['ReachEvents'].description
+            reach_arm = map(lambda x: x.capitalize(), reach_arm.split('_'))
+            reach_arm = list(reach_arm)
+            reach_arm = '_'.join(reach_arm)
+
             jointpos_widget = SeparateTracesPlotlyWidget(
-            nwb_file.processing['behavior'].data_interfaces['Position']['L_Wrist'],
+            nwb_file.processing['behavior'].data_interfaces['Position'][reach_arm],
             foreign_time_window_controller = time_trace_window_controller
             )
             skeleton_widget = SkeletonPlot(
