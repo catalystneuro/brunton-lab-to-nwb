@@ -11,7 +11,7 @@ from nwbwidgets.utils.timeseries import (
     timeseries_time_to_ind,
     get_timeseries_in_units,
 )
-from nwbwidgets.timeseries import SingleTraceWidget
+from nwbwidgets.timeseries import SingleTraceWidget, SeparateTracesPlotlyWidget
 from nwbwidgets.controllers import StartAndDurationController
 from nwbwidgets.utils.widgets import interactive_output
 from nwbwidgets.brains import HumanElectrodesPlotlyWidget
@@ -48,7 +48,7 @@ class BruntonDashboard(widgets.VBox):
             reach_arm = list(reach_arm)
             reach_arm = '_'.join(reach_arm)
 
-            jointpos_widget = AllPositionTracesPlotlyWidget(
+            jointpos_widget = SeparateTracesPlotlyWidget(
             nwb_file.processing['behavior'].data_interfaces['Position'][reach_arm],
             foreign_time_window_controller = time_trace_window_controller
             )
@@ -154,7 +154,10 @@ class AllPositionTracesPlotlyWidget(SingleTraceWidget):
                 for i, (yy, xyz) in enumerate(zip(data.T, ("x", "y", "z"))):
                     self.out_fig.add_trace(go.Scattergl(x=tt,
                                                         y=yy,
-                                                        marker_color=color), row=(k * data_dim) + i + 1, col=1)
+                                                        marker_color=color,
+                                                        showlegend=False),
+                                           row=(k * data_dim) + i + 1,
+                                           col=1)
                     if units:
                         yaxes_label = f"{xyz} ({units})"
                     else:
