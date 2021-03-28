@@ -26,93 +26,146 @@ import matplotlib.pyplot as plt
 
 
 class BruntonDashboard(widgets.VBox):
-    def __init__(self, nwb_file: NWBFile):
-        box_layout = Layout(justify_content='space-between',
+    def __init__(self, nwb_file: NWBFile,
+                 tab1 = 'local'):
+        self.box_layout = Layout(justify_content='space-between',
                             # align_content='space-between',
                             align_items='center',
                             flex_basis='auto',
                             )
-        super().__init__(layout=box_layout)
+        super().__init__(layout=self.box_layout)
 
-        def tab1(nwb_file):
-            position_keys = list(nwb_file.processing['behavior'].data_interfaces['Position'].spatial_series.keys())
-            spatial_series = nwb_file.processing['behavior'].data_interfaces['Position'][position_keys[0]]
-            tt = get_timeseries_tt(spatial_series, istart=spatial_series.starting_time)
-            time_trace_window_controller = StartAndDurationController(
-                tmax=tt[-1],
-                tmin=tt[0],
-                start=0,
-                duration=5
-            )
-            reach_arm = nwb_file.processing['behavior'].data_interfaces['ReachEvents'].description
-            reach_arm = map(lambda x: x.capitalize(), reach_arm.split('_'))
-            reach_arm = list(reach_arm)
-            reach_arm = '_'.join(reach_arm)
+        if tab1 == 'local':
+            func1 = self.tab1
+        else:
+            func1 = self.tab_stream
 
-            jointpos_widget = AllPositionTracesPlotlyWidget(
-            nwb_file.processing['behavior'].data_interfaces['Position'][reach_arm],
-            foreign_time_window_controller = time_trace_window_controller
-            )
-            skeleton_widget = SkeletonPlot(
-            nwb_file.processing['behavior'].data_interfaces['Position'],
-            foreign_time_window_controller = time_trace_window_controller
-            )
-            ecog_widget = ElectricalSeriesWidget(
-                nwb_file.acquisition['ElectricalSeries'],
-                foreign_time_window_controller=time_trace_window_controller
-            )
-            brains_widget = HumanElectrodesPlotlyWidget(nwb_file.electrodes)
-
-            tab1_hbox_header = widgets.HBox([time_trace_window_controller])
-            tab1_row1_widgets = widgets.HBox([skeleton_widget,
-                                              jointpos_widget,
-                                              ],
-                                             layout=box_layout
-                                             )
-            tab1_row2_widgets = widgets.HBox([ecog_widget,
-                                              brains_widget,
-                                              ],
-                                             layout=box_layout
-                                             )
-            tab1 = widgets.VBox([tab1_hbox_header,
-                                 tab1_row1_widgets,
-                                 tab1_row2_widgets
-                                 ]
-                                )
-            return tab1
-
-        def tab2(nwb_file):
-            # spatial_series = nwb_file.processing['behavior'].data_interfaces['Position']['L_Ear']
-            # tt = get_timeseries_tt(spatial_series, istart=spatial_series.starting_time)
-            # event_trace_window_controller = StartAndDurationController(
-            #     tmax=tt[-1],
-            #     tmin=tt[0],
-            #     start=0,
-            #     duration=5
-            # )
-            eta_widget = ETAWidget(
-                nwb_file.processing['behavior'].data_interfaces['ReachEvents'],
-                nwb_file.processing['behavior'].data_interfaces['Position'],
-                nwb_file.acquisition['ElectricalSeries'],
-                # foreign_time_window_controller=event_trace_window_controller
-            )
-
-            # tab2_hbox_header = widgets.HBox([event_trace_window_controller])
-            tab2_row1_widgets = widgets.HBox([eta_widget,
-                                              ],
-                                             layout=box_layout
-                                             )
-
-            tab2 = widgets.VBox([tab2_row1_widgets])
-            return tab2
-
-        in_dict = {'Time Trace Plots': tab1, # brunton-lab-to-nwb.brunton_widgets.BruntonDashboard.
-                   'Event-triggered Plots': tab2 # brunton-lab-to-nwb.brunton_widgets.BruntonDashboard.
+        in_dict = {'Time Trace Plots': func1, # brunton-lab-to-nwb.brunton_widgets.BruntonDashboard.
+                   'Event-triggered Plots': self.tab2 # brunton-lab-to-nwb.brunton_widgets.BruntonDashboard.
                    }
         tabs = lazy_tabs(in_dict, nwb_file)
         accordion = widgets.Accordion(children=[tabs], selected_index=None)
         accordion.set_title(0, 'Brunton Dashboard')
         self.children = [accordion]
+
+    def tab1(self, nwb_file):
+        position_keys = list(nwb_file.processing['behavior'].data_interfaces['Position'].spatial_series.keys())
+        spatial_series = nwb_file.processing['behavior'].data_interfaces['Position'][position_keys[0]]
+        tt = get_timeseries_tt(spatial_series, istart=spatial_series.starting_time)
+        time_trace_window_controller = StartAndDurationController(
+            tmax=tt[-1],
+            tmin=tt[0],
+            start=0,
+            duration=5
+        )
+        reach_arm = nwb_file.processing['behavior'].data_interfaces['ReachEvents'].description
+        reach_arm = map(lambda x: x.capitalize(), reach_arm.split('_'))
+        reach_arm = list(reach_arm)
+        reach_arm = '_'.join(reach_arm)
+
+        jointpos_widget = AllPositionTracesPlotlyWidget(
+            nwb_file.processing['behavior'].data_interfaces['Position'][reach_arm],
+            foreign_time_window_controller=time_trace_window_controller
+        )
+        skeleton_widget = SkeletonPlot(
+            nwb_file.processing['behavior'].data_interfaces['Position'],
+            foreign_time_window_controller=time_trace_window_controller
+        )
+        ecog_widget = ElectricalSeriesWidget(
+            nwb_file.acquisition['ElectricalSeries'],
+            foreign_time_window_controller=time_trace_window_controller
+        )
+        brains_widget = HumanElectrodesPlotlyWidget(nwb_file.electrodes)
+
+        tab1_hbox_header = widgets.HBox([time_trace_window_controller])
+        tab1_row1_widgets = widgets.HBox([skeleton_widget,
+                                          jointpos_widget,
+                                          ],
+                                         layout=self.box_layout
+                                         )
+        tab1_row2_widgets = widgets.HBox([ecog_widget,
+                                          brains_widget,
+                                          ],
+                                         layout=self.box_layout
+                                         )
+        tab1 = widgets.VBox([tab1_hbox_header,
+                             tab1_row1_widgets,
+                             tab1_row2_widgets
+                             ]
+                            )
+        return tab1
+
+    def tab_stream(self, nwb_file):
+        position_keys = list(nwb_file.processing['behavior'].data_interfaces['Position'].spatial_series.keys())
+        spatial_series = nwb_file.processing['behavior'].data_interfaces['Position'][position_keys[0]]
+        tt = get_timeseries_tt(spatial_series, istart=spatial_series.starting_time)
+        time_trace_window_controller = StartAndDurationController(
+            tmax=tt[-1],
+            tmin=tt[0],
+            start=0,
+            duration=5
+        )
+        reach_arm = nwb_file.processing['behavior'].data_interfaces['ReachEvents'].description
+        reach_arm = map(lambda x: x.capitalize(), reach_arm.split('_'))
+        reach_arm = list(reach_arm)
+        reach_arm = '_'.join(reach_arm)
+
+        jointpos_widget = SeparateTracesPlotlyWidget(
+            nwb_file.processing['behavior'].data_interfaces['Position'][reach_arm],
+            foreign_time_window_controller=time_trace_window_controller
+        )
+        skeleton_widget = SkeletonPlot(
+            nwb_file.processing['behavior'].data_interfaces['Position'],
+            foreign_time_window_controller=time_trace_window_controller
+        )
+        ecog_widget = ElectricalSeriesWidget(
+            nwb_file.acquisition['ElectricalSeries'],
+            foreign_time_window_controller=time_trace_window_controller
+        )
+        brains_widget = HumanElectrodesPlotlyWidget(nwb_file.electrodes)
+
+        tab1_hbox_header = widgets.HBox([time_trace_window_controller])
+        tab1_row1_widgets = widgets.HBox([skeleton_widget,
+                                          jointpos_widget,
+                                          ],
+                                         layout=self.box_layout
+                                         )
+        tab1_row2_widgets = widgets.HBox([ecog_widget,
+                                          brains_widget,
+                                          ],
+                                         layout=self.box_layout
+                                         )
+        tab1 = widgets.VBox([tab1_hbox_header,
+                             tab1_row1_widgets,
+                             tab1_row2_widgets
+                             ]
+                            )
+        return tab1
+
+    def tab2(self, nwb_file):
+        # spatial_series = nwb_file.processing['behavior'].data_interfaces['Position']['L_Ear']
+        # tt = get_timeseries_tt(spatial_series, istart=spatial_series.starting_time)
+        # event_trace_window_controller = StartAndDurationController(
+        #     tmax=tt[-1],
+        #     tmin=tt[0],
+        #     start=0,
+        #     duration=5
+        # )
+        eta_widget = ETAWidget(
+            nwb_file.processing['behavior'].data_interfaces['ReachEvents'],
+            nwb_file.processing['behavior'].data_interfaces['Position'],
+            nwb_file.acquisition['ElectricalSeries'],
+            # foreign_time_window_controller=event_trace_window_controller
+        )
+
+        # tab2_hbox_header = widgets.HBox([event_trace_window_controller])
+        tab2_row1_widgets = widgets.HBox([eta_widget,
+                                          ],
+                                         layout=self.box_layout
+                                         )
+
+        tab2 = widgets.VBox([tab2_row1_widgets])
+        return tab2
 
 
 class AllPositionTracesPlotlyWidget(SingleTraceWidget):
