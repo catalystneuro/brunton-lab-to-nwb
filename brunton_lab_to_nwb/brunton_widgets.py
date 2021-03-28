@@ -28,14 +28,15 @@ import matplotlib.pyplot as plt
 class BruntonDashboard(widgets.VBox):
     def __init__(self, nwb_file: NWBFile):
         box_layout = Layout(justify_content='space-between',
-                            align_content='space-between',
+                            # align_content='space-between',
                             align_items='center',
                             flex_basis='auto',
                             )
         super().__init__(layout=box_layout)
 
         def tab1(nwb_file):
-            spatial_series = nwb_file.processing['behavior'].data_interfaces['Position']['L_Ear']
+            position_keys = list(nwb_file.processing['behavior'].data_interfaces['Position'].spatial_series.keys())
+            spatial_series = nwb_file.processing['behavior'].data_interfaces['Position'][position_keys[0]]
             tt = get_timeseries_tt(spatial_series, istart=spatial_series.starting_time)
             time_trace_window_controller = StartAndDurationController(
                 tmax=tt[-1],
@@ -48,7 +49,7 @@ class BruntonDashboard(widgets.VBox):
             reach_arm = list(reach_arm)
             reach_arm = '_'.join(reach_arm)
 
-            jointpos_widget = SeparateTracesPlotlyWidget(
+            jointpos_widget = AllPositionTracesPlotlyWidget(
             nwb_file.processing['behavior'].data_interfaces['Position'][reach_arm],
             foreign_time_window_controller = time_trace_window_controller
             )
@@ -60,55 +61,58 @@ class BruntonDashboard(widgets.VBox):
                 nwb_file.acquisition['ElectricalSeries'],
                 foreign_time_window_controller=time_trace_window_controller
             )
-            tab1_hbox_header = widgets.HBox([time_trace_window_controller])
-            tab1_col1_widgets = widgets.VBox([skeleton_widget,
-                                              ecog_widget
-
-                                              ],
-                                             layout=box_layout
-                                             )
-            tab1_col2_widgets = widgets.VBox([jointpos_widget,
-                                              ],
-                                             layout=box_layout
-                                             )
-            tab1_body = widgets.HBox([tab1_col1_widgets, tab1_col2_widgets])
-            tab1 = widgets.VBox([tab1_hbox_header,
-                                 tab1_body])
-            return tab1
-
-        def tab2(nwb_file):
-            spatial_series = nwb_file.processing['behavior'].data_interfaces['Position']['L_Ear']
-            tt = get_timeseries_tt(spatial_series, istart=spatial_series.starting_time)
-            event_trace_window_controller = StartAndDurationController(
-                tmax=tt[-1],
-                tmin=tt[0],
-                start=0,
-                duration=5
-            )
-            eta_widget = ETAWidget(
-                nwb_file.processing['behavior'].data_interfaces['ReachEvents'],
-                nwb_file.processing['behavior'].data_interfaces['Position'],
-                nwb_file.acquisition['ElectricalSeries'],
-                foreign_time_window_controller=event_trace_window_controller
-            )
             brains_widget = HumanElectrodesPlotlyWidget(nwb_file.electrodes)
 
-            tab2_hbox_header = widgets.HBox([event_trace_window_controller])
-            tab2_row1_widgets = widgets.HBox([eta_widget,
+            tab1_hbox_header = widgets.HBox([time_trace_window_controller])
+            tab1_row1_widgets = widgets.HBox([skeleton_widget,
+                                              jointpos_widget,
+                                              ],
+                                             layout=box_layout
+                                             )
+            tab1_row2_widgets = widgets.HBox([ecog_widget,
                                               brains_widget,
                                               ],
                                              layout=box_layout
                                              )
+            tab1 = widgets.VBox([tab1_hbox_header,
+                                 tab1_row1_widgets,
+                                 tab1_row2_widgets
+                                 ]
+                                )
+            return tab1
 
-            tab2 = widgets.VBox([tab2_hbox_header,
-                                 tab2_row1_widgets])
+        def tab2(nwb_file):
+            # spatial_series = nwb_file.processing['behavior'].data_interfaces['Position']['L_Ear']
+            # tt = get_timeseries_tt(spatial_series, istart=spatial_series.starting_time)
+            # event_trace_window_controller = StartAndDurationController(
+            #     tmax=tt[-1],
+            #     tmin=tt[0],
+            #     start=0,
+            #     duration=5
+            # )
+            eta_widget = ETAWidget(
+                nwb_file.processing['behavior'].data_interfaces['ReachEvents'],
+                nwb_file.processing['behavior'].data_interfaces['Position'],
+                nwb_file.acquisition['ElectricalSeries'],
+                # foreign_time_window_controller=event_trace_window_controller
+            )
+
+            # tab2_hbox_header = widgets.HBox([event_trace_window_controller])
+            tab2_row1_widgets = widgets.HBox([eta_widget,
+                                              ],
+                                             layout=box_layout
+                                             )
+
+            tab2 = widgets.VBox([tab2_row1_widgets])
             return tab2
 
         in_dict = {'Time Trace Plots': tab1, # brunton-lab-to-nwb.brunton_widgets.BruntonDashboard.
                    'Event-triggered Plots': tab2 # brunton-lab-to-nwb.brunton_widgets.BruntonDashboard.
                    }
         tabs = lazy_tabs(in_dict, nwb_file)
-        self.children = [tabs]
+        accordion = widgets.Accordion(children=[tabs], selected_index=None)
+        accordion.set_title(0, 'Brunton Dashboard')
+        self.children = [accordion]
 
 
 class AllPositionTracesPlotlyWidget(SingleTraceWidget):
@@ -141,13 +145,12 @@ class AllPositionTracesPlotlyWidget(SingleTraceWidget):
         for (joint, c) in zip(position_keys, DEFAULT_PLOTLY_COLORS):
             position_colors.append(c)
         position_colors = {key: color for key, color in zip(position_keys, position_colors)}
-        position_keys = position_keys[0:3] + [position_keys[4]] + position_keys[6:]
         data_dim = data.shape[1]
         subplot_titles = np.repeat(position_keys, data_dim)
         if (len(data.shape) > 1) | len(position_keys) > 1:
-            self.out_fig = go.FigureWidget(make_subplots(rows=data.shape[1] * len(position_keys), cols=1,
+            self.out_fig = go.FigureWidget(make_subplots(rows=len(position_keys), cols=2,
                                                          subplot_titles= subplot_titles))
-            self.out_fig['layout'].update(width=300, height=1000)
+            self.out_fig['layout'].update(width=800, height=700)
             for k, key in enumerate(position_keys):
                 data = positions[key].data[:]
                 color = position_colors[key]
@@ -156,26 +159,31 @@ class AllPositionTracesPlotlyWidget(SingleTraceWidget):
                                                         y=yy,
                                                         marker_color=color,
                                                         showlegend=False),
-                                           row=(k * data_dim) + i + 1,
-                                           col=1)
+                                           row=k + 1,
+                                           col=i + 1)
                     if units:
                         yaxes_label = f"{xyz} ({units})"
                     else:
                         yaxes_label = xyz
-                    self.out_fig.update_yaxes(title_text=yaxes_label, row=(k * data_dim) + i + 1, col=1)
+                    self.out_fig.update_yaxes(title_text=yaxes_label, row=k + 1, col=i + 1)
                     self.out_fig.update_xaxes(
                         showticklabels=False,
-                        row=(k * data_dim) + i + 1,
-                        col=1
+                        row=k + 1,
+                        col=i + 1
                     )
                 self.out_fig['layout']['annotations'][(k * data_dim) + i]['text'] = f'{key}'
             self.out_fig.update_xaxes(
                 showticklabels=True,
-                row=(k * data_dim) + i + 1,
-                col=1
+                row=k + 1,
+                col=i
             )
-
-            self.out_fig.update_xaxes(title_text="time (s)", row=(k * data_dim) + i + 1, col=1)
+            self.out_fig.update_xaxes(
+                showticklabels=True,
+                row=k + 1,
+                col=i + 1
+            )
+            self.out_fig.update_xaxes(title_text="time (s)", row=k + 1, col=i)
+            self.out_fig.update_xaxes(title_text="time (s)", row=k + 1, col=i + 1)
 
         else:
             self.out_fig = go.FigureWidget()
@@ -272,7 +280,7 @@ class SkeletonPlot(widgets.VBox):
         skeleton_vector = np.vstack(skeleton_vector)
 
         self.fig.add_trace(
-            go.Scatter(x=-skeleton_vector[:,0],
+            go.Scatter(x=skeleton_vector[:,0],
                        y=-skeleton_vector[:,1],
                        mode='lines+markers+text',
                        marker_color=self.joint_colors,
@@ -315,18 +323,18 @@ class ETAWidget(widgets.VBox):
         reach_arm = '_'.join(reach_arm)
         self.spatial_series = position.spatial_series[reach_arm]
 
-        if foreign_time_window_controller is None:
-            self.tt = get_timeseries_tt(self.spatial_series, istart=self.spatial_series.starting_time)
-            self.time_window_controller = StartAndDurationController(
-                tmax=self.tt[-1],
-                tmin=self.tt[0],
-                start=0,
-                duration=5
-            )
-            show_time_controller = True
-        else:
-            self.time_window_controller = foreign_time_window_controller
-            show_time_controller = False
+        # if foreign_time_window_controller is None:
+        self.tt = get_timeseries_tt(self.spatial_series, istart=self.spatial_series.starting_time)
+        #     self.time_window_controller = StartAndDurationController(
+        #         tmax=self.tt[-1],
+        #         tmin=self.tt[0],
+        #         start=0,
+        #         duration=5
+        #     )
+        #     show_time_controller = True
+        # else:
+        #     self.time_window_controller = foreign_time_window_controller
+        #     show_time_controller = False
 
         # Store events in object
         self.events = events.timestamps[:]
@@ -334,26 +342,25 @@ class ETAWidget(widgets.VBox):
         self.controls = dict(
             after=after_ft,
             before=before_ft,
-            time_window=self.time_window_controller
+            # time_window=self.time_window_controller
         )
-
 
         out_fig = interactive_output(self.trials_psth, self.controls)
         # self.time_window_controller.observe(self.updated_time_range)
 
         # self.fig = go.FigureWidget()
         # self.ecog_psth(acquisition)
-        if show_time_controller:
-            header_row = widgets.HBox([before_ft,
-                                       after_ft,
-                                       self.time_window_controller
-                                      ]
-                                     )
-        else:
-            header_row = widgets.HBox([before_ft,
-                                       after_ft,
-                                      ]
-                                     )
+        # if show_time_controller:
+        #     header_row = widgets.HBox([before_ft,
+        #                                after_ft,
+        #                                self.time_window_controller
+        #                               ]
+        #                              )
+        # else:
+        header_row = widgets.HBox([before_ft,
+                                   after_ft,
+                                  ]
+                                 )
 
         self.children = [header_row,
                          out_fig
@@ -362,14 +369,7 @@ class ETAWidget(widgets.VBox):
                          #               ]
                          #              )
 
-
-    # def updated_time_range(self, change=None):
-    #     """Operations to run whenever time range gets updated"""
-    #     plt.close()
-    #     if 'new' in change:
-    #         self.trials_psth(self.controls['before'].value, self.controls['after'].value)
-
-    def trials_psth(self, before=1.5, after=1.5, time_window=[0, 5], figsize=(6, 6)):
+    def trials_psth(self, before=1.5, after=1.5, figsize=(6, 6)):  # time_window
         """
         Trial data by event times and plot
 
@@ -386,11 +386,11 @@ class ETAWidget(widgets.VBox):
         matplotlib.Figure
 
         """
-        mask = (self.events > time_window[0]) \
-               & (self.events < time_window[1])
-        active_events = self.events[mask]
-        starts = active_events - before
-        stops = active_events + after
+        # mask = (self.events > time_window[0]) \
+        #        & (self.events < time_window[1])
+        # active_events = self.events[mask]
+        starts = self.events - before
+        stops = self.events + after
 
         trials = align_by_times(self.spatial_series, starts, stops)
 
