@@ -9,6 +9,9 @@ numpy
 plotly
 joblib
 nwbwidgets
+requests
+nilearn
+h5py
 git+git://github.com/NeurodataWithoutBorders/nwb-jupyter-widgets@brunton_brains
 
 
