@@ -130,8 +130,8 @@ class BruntonDashboard(widgets.VBox):
                                           ],
                                          layout=self.box_layout
                                          )
-        tab1_row2_widgets = widgets.HBox([ecog_widget,
-                                          brains_widget,
+        tab1_row2_widgets = widgets.HBox([brains_widget,
+                                          ecog_widget,
                                           ],
                                          layout=self.box_layout
                                          )
