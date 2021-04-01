@@ -73,7 +73,7 @@ class BruntonDashboard(widgets.VBox):
         )
         ecog_widget = ElectricalSeriesWidget(
             nwb_file.acquisition['ElectricalSeries'],
-            foreign_time_window_controller=time_trace_window_controller
+            foreign_time_window_controller=time_trace_window_controller,
         )
         brains_widget = HumanElectrodesPlotlyWidget(nwb_file.electrodes)
 
