@@ -18,3 +18,7 @@ pip install --force-reinstall --no-binary=h5py
 
 jupyter contrib nbextension install --user
 jupyter nbextension enable --py widgetsnbextension
+
+pip install bqplot
+jupyter labextension install @jupyter-widgets/jupyterlab-manager
+jupyter labextension install bqplot
