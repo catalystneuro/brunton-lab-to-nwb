@@ -166,7 +166,7 @@ class BruntonDashboard(widgets.VBox):
                              ecog_widget],
                             layout=self.box_layout)
 
-        brains_widget = HumanElectrodesPlotlyWidget(nwb_file.electrodes)
+        brain_widget = HumanElectrodesPlotlyWidget(nwb_file.electrodes)
         brain_label = widgets.Label("Subject electrode locations")
         brain = widgets.VBox([brain_label,
                               brain_widget],
