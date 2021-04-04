@@ -21,9 +21,12 @@ import plotly.graph_objects as go
 from plotly.colors import DEFAULT_PLOTLY_COLORS
 from plotly.subplots import make_subplots
 
+import bqplot.pyplot as bqplt
+from bqplot import LinearScale, Axis
+
 import numpy as np
 import matplotlib.pyplot as plt
-
+import time
 
 class BruntonDashboard(widgets.VBox):
     def __init__(self, nwb_file: NWBFile,
@@ -35,6 +38,11 @@ class BruntonDashboard(widgets.VBox):
                             )
         super().__init__(layout=self.box_layout)
 
+        self.row_layout = Layout(justify_content='space-between',
+                                 # align_content='space-between',
+                                 align_items='flex-start',
+                                 flex_basis='auto',
+                                 )
         if tab1 == 'local':
             func1 = self.tab1
         else:
@@ -67,31 +75,52 @@ class BruntonDashboard(widgets.VBox):
             nwb_file.processing['behavior'].data_interfaces['Position'][reach_arm],
             foreign_time_window_controller=time_trace_window_controller
         )
+        jointpos_label = widgets.Label("Movement segments")
+        jointpos = widgets.VBox([jointpos_label,
+                                 jointpos_widget],
+                                 layout=self.box_layout)
+
         skeleton_widget = SkeletonPlot(
             nwb_file.processing['behavior'].data_interfaces['Position'],
             foreign_time_window_controller=time_trace_window_controller
         )
+        skeleton_label = widgets.Label("Tracked joints")
+        skeleton = widgets.VBox([skeleton_label,
+                                 skeleton_widget],
+                                 layout=self.box_layout)
+
         ecog_widget = ElectricalSeriesWidget(
             nwb_file.acquisition['ElectricalSeries'],
             foreign_time_window_controller=time_trace_window_controller,
         )
-        brains_widget = HumanElectrodesPlotlyWidget(nwb_file.electrodes)
+        ecog_label = widgets.Label("Raw ECoG")
+        ecog = widgets.VBox([ecog_label,
+                             ecog_widget],
+                             layout=self.box_layout)
+
+        brain_widget = HumanElectrodesPlotlyWidget(nwb_file.electrodes)
+        brain_label = widgets.Label("Subject electrode locations")
+        brain = widgets.VBox([brain_label,
+                             brain_widget],
+                             layout=self.box_layout)
 
         tab1_hbox_header = widgets.HBox([time_trace_window_controller])
-        tab1_row1_widgets = widgets.HBox([skeleton_widget,
-                                          jointpos_widget,
+
+        tab1_row1_widgets = widgets.HBox([skeleton,
+                                          jointpos,
                                           ],
-                                         layout=self.box_layout
+                                         layout=self.row_layout
                                          )
-        tab1_row2_widgets = widgets.HBox([brains_widget,
-                                          ecog_widget,
+        tab1_row2_widgets = widgets.HBox([brain,
+                                          ecog,
                                           ],
-                                         layout=self.box_layout
+                                         layout=self.row_layout
                                          )
         tab1 = widgets.VBox([tab1_hbox_header,
                              tab1_row1_widgets,
                              tab1_row2_widgets
-                             ]
+                             ],
+                             layout = self.box_layout
                             )
         return tab1
 
@@ -114,26 +143,45 @@ class BruntonDashboard(widgets.VBox):
             nwb_file.processing['behavior'].data_interfaces['Position'][reach_arm],
             foreign_time_window_controller=time_trace_window_controller
         )
+        jointpos_label = widgets.Label("Movement segments")
+        jointpos = widgets.VBox([jointpos_label,
+                                 jointpos_widget],
+                                layout=self.box_layout)
+
         skeleton_widget = SkeletonPlot(
             nwb_file.processing['behavior'].data_interfaces['Position'],
             foreign_time_window_controller=time_trace_window_controller
         )
+        skeleton_label = widgets.Label("Tracked joints")
+        skeleton = widgets.VBox([skeleton_label,
+                                 skeleton_widget],
+                                layout=self.box_layout)
+
         ecog_widget = ElectricalSeriesWidget(
             nwb_file.acquisition['ElectricalSeries'],
             foreign_time_window_controller=time_trace_window_controller
         )
+        ecog_label = widgets.Label("Raw ECoG")
+        ecog = widgets.VBox([ecog_label,
+                             ecog_widget],
+                            layout=self.box_layout)
+
         brains_widget = HumanElectrodesPlotlyWidget(nwb_file.electrodes)
+        brain_label = widgets.Label("Subject electrode locations")
+        brain = widgets.VBox([brain_label,
+                              brain_widget],
+                             layout=self.box_layout)
 
         tab1_hbox_header = widgets.HBox([time_trace_window_controller])
-        tab1_row1_widgets = widgets.HBox([skeleton_widget,
-                                          jointpos_widget,
+        tab1_row1_widgets = widgets.HBox([skeleton,
+                                          jointpos,
                                           ],
-                                         layout=self.box_layout
+                                         layout=self.row_layout
                                          )
-        tab1_row2_widgets = widgets.HBox([brains_widget,
-                                          ecog_widget,
+        tab1_row2_widgets = widgets.HBox([brain,
+                                          ecog,
                                           ],
-                                         layout=self.box_layout
+                                         layout=self.row_layout
                                          )
         tab1 = widgets.VBox([tab1_hbox_header,
                              tab1_row1_widgets,
@@ -267,6 +315,13 @@ class AllPositionTracesPlotlyWidget(SingleTraceWidget):
         self.controls["time_window"].observe(on_change)
 
 
+def bqfig2widget(fig: bqplt.figure, **kwargs) -> widgets.Widget:
+    out = widgets.Output()
+    with out:
+        bqplt.figure(fig=fig)
+        bqplt.show()
+    return out
+
 class SkeletonPlot(widgets.VBox):
     def __init__(self, position: Position,
                  foreign_time_window_controller: StartAndDurationController  = None):
@@ -294,29 +349,10 @@ class SkeletonPlot(widgets.VBox):
             self.time_window_controller = foreign_time_window_controller
             frame_ind = np.searchsorted(self.tt, self.time_window_controller.value[0])
 
-        self.fig = go.FigureWidget()
-        self.plot_skeleton(frame_ind)
-
-        # Updates list of valid spike times at each change in time range
-        self.time_window_controller.observe(self.updated_time_range)
-
-        if show_time_controller:
-            self.children = [self.time_window_controller,
-                             self.fig
-                             ]
-        else:
-            self.children = [self.fig]
-
-    def updated_time_range(self, change=None):
-        """Operations to run whenever time range gets updated"""
-        self.fig.data = None
-        if 'new' in change:
-            frame_ind = np.searchsorted(self.tt, self.time_window_controller.value[0])
-            self.plot_skeleton(frame_ind)
-
-    def plot_skeleton(self, frame_ind):
-
-        joint_keys = ['L_Wrist',
+        play_btn = widgets.Button(description="Start", icon="play")
+        self.joint_colors = ["dodgerblue", "orange", "forestgreen", "red", "mediumpurple", "saddlebrown", "hotpink", "gray",
+                        "yellowgreen"]
+        self.joint_keys = ['L_Wrist',
                       'L_Elbow',
                       'L_Shoulder',
                       'L_Ear',
@@ -326,36 +362,118 @@ class SkeletonPlot(widgets.VBox):
                       'R_Elbow',
                       'R_Wrist'
                       ]
+        self.fig = bqplt.figure(animation_duration=1000)
+        self.plot_skeleton(frame_ind)
+
+        # Updates list of valid spike times at each change in time range
+        self.time_window_controller.observe(self.updated_time_range)
+        play_btn.on_click(self.animate_scatter_chart)
+
+        if show_time_controller:
+            self.children = [self.time_window_controller,
+                             self.fig,
+                             play_btn
+                             ]
+        else:
+            self.children = [self.fig, play_btn]
+
+    def updated_time_range(self, change=None):
+        """Operations to run whenever time range gets updated"""
+        bqplt.figure(fig=self.fig)
+        if 'new' in change:
+            frame_ind = np.searchsorted(self.tt, self.time_window_controller.value[0])
+            skeleton_vector = []
+            for joint in self.joint_keys:
+                skeleton_vector.append(self.position[joint].data[frame_ind])
+            skeleton_vector = np.vstack(skeleton_vector)
+
+            # with self.scat.hold_sync():
+            # with self.plot.hold_sync():
+            with self.scat.hold_sync():
+                self.scat.x = skeleton_vector[:, 0]
+                self.scat.y = -skeleton_vector[:, 1]
+            time.sleep(0.5)
+            with self.plot.hold_sync():
+                self.plot.x = skeleton_vector[:, 0]
+                self.plot.y = -skeleton_vector[:, 1]
+
+    def animate_scatter_chart(self, play_btn):
+        frame_ind_start = np.searchsorted(self.tt, self.time_window_controller.value[0])
+        frame_ind_end = np.searchsorted(self.tt, self.time_window_controller.value[1])
+        bqplt.figure(fig=self.fig)
+        for frame_ind in range(frame_ind_start, frame_ind_end):
+            skeleton_vector = []
+            for joint in self.joint_keys:
+                skeleton_vector.append(self.position[joint].data[frame_ind])
+            skeleton_vector = np.vstack(skeleton_vector)
+            # with self.scat.hold_sync():
+            with self.scat.hold_sync():
+                self.scat.x = skeleton_vector[:, 0]
+                self.scat.y = -skeleton_vector[:, 1]
+                time.sleep(1)
+            with self.plot.hold_sync():
+                self.plot.x = skeleton_vector[:, 0]
+                self.plot.y = -skeleton_vector[:, 1]
+
+
+
+    def plot_skeleton(self, frame_ind):
+
         skeleton_vector = []
-        for joint in joint_keys:
+        for joint in self.joint_keys:
             skeleton_vector.append(self.position[joint].data[frame_ind])
 
         skeleton_vector = np.vstack(skeleton_vector)
 
-        self.fig.add_trace(
-            go.Scatter(x=skeleton_vector[:,0],
-                       y=-skeleton_vector[:,1],
-                       mode='lines+markers+text',
-                       marker_color=self.joint_colors,
-                       marker_size=12,
-                       text= joint_keys,
-                       hoverinfo='text',
-                       textposition="bottom center"
-                       )
-        )
+        fig = bqplt.figure(fig=self.fig)
+        fig.layout.height = "500px"
+        fig.layout.width = "600px"
 
-        self.fig.update_layout(
-            xaxis = dict(
-                    showgrid=False,  # thin lines in the background
-                    zeroline=False,  # thick line at x=0
-                    visible=False,  # numbers below
-                    ),
-            yaxis = dict(
-                    showgrid=False,  # thin lines in the background
-                    zeroline=False,  # thick line at x=0
-                    visible=False,  # numbers below
-                    )
-        )
+        self.plot = bqplt.plot(x=skeleton_vector[:, 0],
+                          y=-skeleton_vector[:, 1],
+                          colors=self.joint_colors,
+                          default_size=200,
+                          marker="circle",
+                          names=self.joint_keys
+                          )
+
+        self.scat = bqplt.scatter(x=skeleton_vector[:, 0],
+                                  y=-skeleton_vector[:, 1],
+                                  colors=self.joint_colors,
+                                  default_size=200,
+                                  marker="circle",
+                                  names=self.joint_keys
+                                  )
+
+        bqplt.grids(value="none")
+
+        # self.fig.add_trace(
+        #     go.Scatter(x=skeleton_vector[:,0],
+        #                y=-skeleton_vector[:,1],
+        #                mode='lines+markers+text',
+        #                marker_color=self.joint_colors,
+        #                marker_size=12,
+        #                text= joint_keys,
+        #                hoverinfo='text',
+        #                textposition="bottom center"
+        #                )
+        # )
+
+        # options = {'color': dict(label='Category', orientation='vertical', side='right')}
+
+        # self.fig.update_layout(
+        #     xaxis = dict(
+        #             showgrid=False,  # thin lines in the background
+        #             zeroline=False,  # thick line at x=0
+        #             visible=False,  # numbers below
+        #             ),
+        #     yaxis = dict(
+        #             showgrid=False,  # thin lines in the background
+        #             zeroline=False,  # thick line at x=0
+        #             visible=False,  # numbers below
+        #             )
+        # )
+
 
 
 class ETAWidget(widgets.VBox):
