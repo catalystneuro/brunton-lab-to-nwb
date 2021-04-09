@@ -162,7 +162,8 @@ class BruntonDashboard(widgets.VBox):
             nwb_file.processing["behavior"].data_interfaces["Position"][reach_arm],
             foreign_time_window_controller=time_trace_window_controller,
         )
-        jointpos_label = widgets.Label("Movement segments")
+        text = "(b) Movement segments"
+        jointpos_label = widgets.HTML(value=f"<b><font size=6>{text}</b>")
         jointpos = widgets.VBox(
             [jointpos_label, jointpos_widget], layout=self.box_layout
         )
@@ -171,7 +172,8 @@ class BruntonDashboard(widgets.VBox):
             nwb_file.processing["behavior"].data_interfaces["Position"],
             foreign_time_window_controller=time_trace_window_controller,
         )
-        skeleton_label = widgets.Label("Tracked joints")
+        text =  "(a) Tracked joints"
+        skeleton_label = widgets.HTML(value=f"<b><font size=6>{text}</b>")
         skeleton = widgets.VBox(
             [skeleton_label, skeleton_widget], layout=self.box_layout
         )
@@ -180,11 +182,13 @@ class BruntonDashboard(widgets.VBox):
             nwb_file.acquisition["ElectricalSeries"],
             foreign_time_window_controller=time_trace_window_controller,
         )
-        ecog_label = widgets.Label("Raw ECoG")
+        text = "(d) Raw ECoG"
+        ecog_label = widgets.HTML(value=f"<b><font size=6>{text}</b>")
         ecog = widgets.VBox([ecog_label, ecog_widget], layout=self.box_layout)
 
         brain_widget = HumanElectrodesPlotlyWidget(nwb_file.electrodes)
-        brain_label = widgets.Label("Subject electrode locations")
+        text = "(c) Subject electrode locations"
+        brain_label = widgets.HTML(value=f"<b><font size=6>{text}</b>")
         brain = widgets.VBox([brain_label, brain_widget], layout=self.box_layout)
 
         tab1_hbox_header = widgets.HBox([time_trace_window_controller])
@@ -315,14 +319,6 @@ class AllPositionTracesPlotlyWidget(SingleTraceWidget):
         self.controls["time_window"].observe(on_change)
 
 
-def bqfig2widget(fig: bqplt.figure, **kwargs) -> widgets.Widget:
-    out = widgets.Output()
-    with out:
-        bqplt.figure(fig=fig)
-        bqplt.show()
-    return out
-
-
 class SkeletonPlot(widgets.VBox):
     def __init__(
         self,
@@ -352,9 +348,37 @@ class SkeletonPlot(widgets.VBox):
         frame_ind = timeseries_time_to_ind(self.spatial_series, self.time_window_controller.value[0])
 
         play_btn = widgets.Button(description="Start", icon="play")
-        self.joint_colors = [to_hex(np.array(unlabel_rgb(x))/255)
+        joint_colors = [to_hex(np.array(unlabel_rgb(x))/255)
                              for x in DEFAULT_PLOTLY_COLORS]
         self.joint_keys = POSITION_KEYS
+        self.joint_colors = [
+            joint_colors[0],
+            joint_colors[1],
+            joint_colors[2],
+            joint_colors[9],
+            joint_colors[4],
+            joint_colors[3],
+            joint_colors[5],
+            joint_colors[4],
+            joint_colors[9],
+            joint_colors[6],
+            joint_colors[7],
+            joint_colors[8]
+            ]
+        self.skeleton_labels = [
+            "L_Wrist",
+            "L_Elbow",
+            "L_Shoulder",
+            "Neck",
+            "Nose",
+            "L_Ear",
+            "R_Ear",
+            "Nose",
+            "Neck",
+            "R_Shoulder",
+            "R_Elbow",
+            "R_Wrist",
+        ]
 
         self.fig = bqplt.figure()  # animation_duration=int(1/spatial_series.rate*1000)
         self.plot_skeleton(frame_ind)
@@ -390,7 +414,7 @@ class SkeletonPlot(widgets.VBox):
 
             if not np.all(np.isnan(all_pos)):
                 self.fig.axes[0].scale.min = np.nanmin(all_pos[:, 0])
-                self.fig.axes[0].scale.max = np.nanmax(all_pos[:, 0])
+                self.fig.axes[0].scale.max = np.nanmax(all_pos[:, 0]) + 30
 
                 self.fig.axes[1].scale.max = np.nanmin(all_pos[:, 1])
                 self.fig.axes[1].scale.min = np.nanmax(all_pos[:, 1])
@@ -399,6 +423,7 @@ class SkeletonPlot(widgets.VBox):
             for joint in self.joint_keys:
                 skeleton_vector.append(self.position[joint].data[self.frame_ind_start])
             skeleton_vector = np.vstack(skeleton_vector)
+            skeleton_vector = self.calc_centroid(skeleton_vector)
 
             with self.scat.hold_sync():
                 self.scat.x = skeleton_vector[:, 0]
@@ -417,6 +442,7 @@ class SkeletonPlot(widgets.VBox):
             for joint in self.joint_keys:
                 skeleton_vector.append(self.position[joint].data[frame_ind])
             skeleton_vector = np.vstack(skeleton_vector)
+            skeleton_vector = self.calc_centroid(skeleton_vector)
             with self.scat.hold_sync():
                 self.scat.x = skeleton_vector[:, 0]
                 self.scat.y = skeleton_vector[:, 1]
@@ -427,6 +453,21 @@ class SkeletonPlot(widgets.VBox):
                 time.sleep(sample_period - time.time() + last_time)
             last_time = time.time()
 
+    def calc_centroid(self, skeleton_vector):
+        base_of_neck = (skeleton_vector[2,:] + skeleton_vector[6,:])/2
+        new_skeleton_vector = np.vstack(
+            [skeleton_vector[0:3,:],
+             base_of_neck,
+             skeleton_vector[4,:], # nose
+             skeleton_vector[3,:], # left ear
+             skeleton_vector[5,:], # right ear
+             skeleton_vector[4,:], # nose
+             base_of_neck,
+             skeleton_vector[6:]
+             ])
+
+        return new_skeleton_vector
+
     def plot_skeleton(self, frame_ind):
 
         skeleton_vector = []
@@ -434,9 +475,11 @@ class SkeletonPlot(widgets.VBox):
             skeleton_vector.append(self.position[joint].data[frame_ind])
 
         skeleton_vector = np.vstack(skeleton_vector)
-
+        skeleton_vector = self.calc_centroid(skeleton_vector)
         self.fig.layout.height = "500px"
         self.fig.layout.width = "600px"
+
+
 
         self.plot = bqplt.plot(
             x=skeleton_vector[:, 0],
@@ -444,7 +487,7 @@ class SkeletonPlot(widgets.VBox):
             colors=self.joint_colors,
             default_size=200,
             marker="circle",
-            names=self.joint_keys,
+            names=self.skeleton_labels,
         )
 
         self.scat = bqplt.scatter(
@@ -453,7 +496,7 @@ class SkeletonPlot(widgets.VBox):
             colors=self.joint_colors,
             default_size=200,
             marker="circle",
-            names=self.joint_keys,
+            names=self.skeleton_labels,
         )
 
         bqplt.grids(value="none")
