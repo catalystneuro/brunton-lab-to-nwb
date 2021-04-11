@@ -91,7 +91,8 @@ class BruntonDashboard(widgets.VBox):
             nwb_file.processing["behavior"].data_interfaces["Position"][reach_arm],
             foreign_time_window_controller=time_trace_window_controller,
         )
-        jointpos_label = widgets.Label("Movement segments")
+        text = "(b) Movement segments"
+        jointpos_label = widgets.HTML(value=f"<b><font size=4>{text}</b>")
         jointpos = widgets.VBox(
             [jointpos_label, jointpos_widget], layout=self.box_layout
         )
@@ -100,7 +101,8 @@ class BruntonDashboard(widgets.VBox):
             nwb_file.processing["behavior"].data_interfaces["Position"],
             foreign_time_window_controller=time_trace_window_controller,
         )
-        skeleton_label = widgets.Label("Tracked joints")
+        text = "(a) Tracked joints"
+        skeleton_label = widgets.HTML(value=f"<b><font size=4>{text}</b>")
         skeleton = widgets.VBox(
             [skeleton_label, skeleton_widget], layout=self.box_layout
         )
@@ -109,11 +111,13 @@ class BruntonDashboard(widgets.VBox):
             nwb_file.acquisition["ElectricalSeries"],
             foreign_time_window_controller=time_trace_window_controller,
         )
-        ecog_label = widgets.Label("Raw ECoG")
+        text = "(d) Raw ECoG"
+        ecog_label = widgets.HTML(value=f"<b><font size=4>{text}</b>")
         ecog = widgets.VBox([ecog_label, ecog_widget], layout=self.box_layout)
 
         brain_widget = HumanElectrodesPlotlyWidget(nwb_file.electrodes)
-        brain_label = widgets.Label("Subject electrode locations")
+        text = "(c) Subject electrode locations"
+        brain_label = widgets.HTML(value=f"<b><font size=4>{text}</b>")
         brain = widgets.VBox([brain_label, brain_widget], layout=self.box_layout)
 
         tab1_hbox_header = widgets.HBox([time_trace_window_controller])
@@ -163,7 +167,7 @@ class BruntonDashboard(widgets.VBox):
             foreign_time_window_controller=time_trace_window_controller,
         )
         text = "(b) Movement segments"
-        jointpos_label = widgets.HTML(value=f"<b><font size=6>{text}</b>")
+        jointpos_label = widgets.HTML(value=f"<b><font size=4>{text}</b>")
         jointpos = widgets.VBox(
             [jointpos_label, jointpos_widget], layout=self.box_layout
         )
@@ -173,7 +177,7 @@ class BruntonDashboard(widgets.VBox):
             foreign_time_window_controller=time_trace_window_controller,
         )
         text =  "(a) Tracked joints"
-        skeleton_label = widgets.HTML(value=f"<b><font size=6>{text}</b>")
+        skeleton_label = widgets.HTML(value=f"<b><font size=4>{text}</b>")
         skeleton = widgets.VBox(
             [skeleton_label, skeleton_widget], layout=self.box_layout
         )
@@ -183,12 +187,12 @@ class BruntonDashboard(widgets.VBox):
             foreign_time_window_controller=time_trace_window_controller,
         )
         text = "(d) Raw ECoG"
-        ecog_label = widgets.HTML(value=f"<b><font size=6>{text}</b>")
+        ecog_label = widgets.HTML(value=f"<b><font size=4>{text}</b>")
         ecog = widgets.VBox([ecog_label, ecog_widget], layout=self.box_layout)
 
         brain_widget = HumanElectrodesPlotlyWidget(nwb_file.electrodes)
         text = "(c) Subject electrode locations"
-        brain_label = widgets.HTML(value=f"<b><font size=6>{text}</b>")
+        brain_label = widgets.HTML(value=f"<b><font size=4>{text}</b>")
         brain = widgets.VBox([brain_label, brain_widget], layout=self.box_layout)
 
         tab1_hbox_header = widgets.HBox([time_trace_window_controller])
@@ -350,20 +354,21 @@ class SkeletonPlot(widgets.VBox):
         play_btn = widgets.Button(description="Start", icon="play")
         joint_colors = [to_hex(np.array(unlabel_rgb(x))/255)
                              for x in DEFAULT_PLOTLY_COLORS]
+        print(joint_colors)
         self.joint_keys = POSITION_KEYS
         self.joint_colors = [
-            joint_colors[0],
-            joint_colors[1],
-            joint_colors[2],
-            joint_colors[9],
-            joint_colors[4],
-            joint_colors[3],
-            joint_colors[5],
-            joint_colors[4],
-            joint_colors[9],
-            joint_colors[6],
-            joint_colors[7],
-            joint_colors[8]
+            joint_colors[0], # l_wrist
+            joint_colors[1], # l_elbow
+            joint_colors[2], # l_shoulder
+            joint_colors[9], # neck
+            joint_colors[4], # nose
+            joint_colors[3], # l_ear
+            joint_colors[5], # r_ear
+            joint_colors[4], # nose
+            joint_colors[9], # neck
+            joint_colors[6], # r_shoulder
+            joint_colors[7], # r_elbow
+            joint_colors[8]  # r_wrist
             ]
         self.skeleton_labels = [
             "L_Wrist",
@@ -414,7 +419,7 @@ class SkeletonPlot(widgets.VBox):
 
             if not np.all(np.isnan(all_pos)):
                 self.fig.axes[0].scale.min = np.nanmin(all_pos[:, 0])
-                self.fig.axes[0].scale.max = np.nanmax(all_pos[:, 0]) + 30
+                self.fig.axes[0].scale.max = np.nanmax(all_pos[:, 0]) + 20
 
                 self.fig.axes[1].scale.max = np.nanmin(all_pos[:, 1])
                 self.fig.axes[1].scale.min = np.nanmax(all_pos[:, 1])
@@ -424,7 +429,6 @@ class SkeletonPlot(widgets.VBox):
                 skeleton_vector.append(self.position[joint].data[self.frame_ind_start])
             skeleton_vector = np.vstack(skeleton_vector)
             skeleton_vector = self.calc_centroid(skeleton_vector)
-
             with self.scat.hold_sync():
                 self.scat.x = skeleton_vector[:, 0]
                 self.scat.y = skeleton_vector[:, 1]
