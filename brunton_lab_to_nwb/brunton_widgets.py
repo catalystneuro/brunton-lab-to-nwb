@@ -354,7 +354,6 @@ class SkeletonPlot(widgets.VBox):
         play_btn = widgets.Button(description="Start", icon="play")
         joint_colors = [to_hex(np.array(unlabel_rgb(x))/255)
                              for x in DEFAULT_PLOTLY_COLORS]
-        print(joint_colors)
         self.joint_keys = POSITION_KEYS
         self.joint_colors = [
             joint_colors[0], # l_wrist
@@ -407,6 +406,8 @@ class SkeletonPlot(widgets.VBox):
             self.frame_ind_start = timeseries_time_to_ind(
                 self.spatial_series, self.time_window_controller.value[0],
             )
+            if self.frame_ind_start is np.nan:
+                return print("No data present")
 
             self.frame_ind_end = timeseries_time_to_ind(
                 self.spatial_series, self.time_window_controller.value[1]
@@ -441,6 +442,9 @@ class SkeletonPlot(widgets.VBox):
         sample_period = 1/list(self.position.spatial_series.values())[0].rate
 
         last_time = time.time()
+        if self.frame_ind_start is np.nan:
+            return print("No data present")
+
         for frame_ind in range(self.frame_ind_start, self.frame_ind_end):
             skeleton_vector = []
             for joint in self.joint_keys:
