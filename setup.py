@@ -26,6 +26,8 @@ setup(
     install_requires=[
         'pynwb',
         'lazy_ops',
-        'pandas'
+        'pandas',
+        'ndx-events',
+        'bqplot',
         ],
 )
