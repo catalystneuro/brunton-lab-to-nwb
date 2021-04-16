@@ -331,6 +331,7 @@ class SkeletonPlot(widgets.VBox):
     ):
         super().__init__()
 
+
         self.position = position
         joint_keys = list(position.spatial_series.keys())
         self.joint_colors = []
@@ -553,6 +554,7 @@ class ETAWidget(widgets.VBox):
         after_ft = widgets.FloatText(
             1.5, min=0, description="after (s)", layout=Layout(width="200px")
         )
+
         # Extract reach arm label from events, format to match key in Position
         # spatial series
         reach_arm = events.description
@@ -579,11 +581,8 @@ class ETAWidget(widgets.VBox):
         # Store events in object
         self.events = events.timestamps[:]
 
-        self.controls = dict(
-            after=after_ft,
-            before=before_ft,
-            # time_window=self.time_window_controller
-        )
+        self.controls = dict(after=after_ft, before=before_ft)
+
 
         out_fig = interactive_output(self.trials_psth, self.controls)
         # self.time_window_controller.observe(self.updated_time_range)
@@ -603,11 +602,8 @@ class ETAWidget(widgets.VBox):
                 after_ft,
             ]
         )
-
         self.children = [header_row, out_fig]
-        # widgets.Vbox([self.fig
-        #               ]
-        #              )
+
 
     def trials_psth(self, before=1.5, after=1.5, figsize=(6, 6)):  # time_window
         """
@@ -695,44 +691,6 @@ class ETAWidget(widgets.VBox):
         ax.set_xlabel("time (s)")
         ax.axvline(color=align_line_color)
 
-    def ecog_psth(self, acquisition, before=1.5, after=1.5):
-
-        starts = self.events - before
-        stops = self.events + after
-
-        trials = align_by_times(acquisition, starts, stops)
-
-        # Discard bad ECoG segments:
-        # Compute log-transformed spectral power density for
-        # each 10 second EcoG segment and discard segments with power below 0
-        # dB or abnormally high power at 115–125 Hz (>3 SD)
-        # compared to all segments
-
-        # Compute log-transformed, time frequency spectral power
-        # with Morlet wavelets
-
-        # Baseline subtract each segment using a
-        # baseline defined as 1.5–1 seconds before each movement initiation event
-
-        # self.fig.add_trace()
-
-
-def process_ecog(acquisition):
-    pass
-    # Remove DC drift by subtracting the median voltage of each electrode
-
-    # Zero artifacts with absolute voltage > 50 interquartile range [IQR].
-
-    # Band-pass filter the data (1–200 Hz)
-
-    # Notch filter at 60 Hz
-
-    # Resample data to 500 Hz
-
-    # Re-referenced to common median for each grid, strip, or depth electrode group
-
-    # Remove electrodes with standard deviation (> 5 IQR) or kurtosis (> 10 IQR)
-    # compared to the median value across channels
 
 
 def compute_speed(pos, pos_tt):
