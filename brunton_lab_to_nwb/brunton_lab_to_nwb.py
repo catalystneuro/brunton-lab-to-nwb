@@ -25,6 +25,7 @@ def run_conversion(
         fpath_out='/Volumes/easystore5T/data/Brunton/subj_01_day_4.nwb',
         events_path='C:/Users/micha/Desktop/Brunton Lab Data/event_times.csv',
         r2_path='C:/Users/micha/Desktop/Brunton Lab Data/full_model_r2.npy',
+        coarse_events_path='C:/Users/micha/Desktop/Brunton Lab Data/coarse_labels/coarse_labels',
         special_chans=SPECIAL_CHANNELS,
         session_description='no description'
 ):
@@ -228,12 +229,37 @@ def run_conversion(
     # add the Events type to the processing group of the NWB file
     nwbfile.processing['behavior'].add(events)
 
+    # add coarse behavioral labels
+    event_fp = f'sub{subject_id}_fullday_{session}'
+    full_fp = coarse_events_path + '//' + event_fp
+    coarse_events = np.load(full_fp, load_pickle=True)
+
+    coarse_event_obj = Position(
+        name='coarse behavior events',
+        spatial_series=[
+            SpatialSeries(
+                name=file['pose_data']['axis0'][x_ind][:-2].decode(),
+                data=H5DataIO(
+                    data=coarse_events[:, [x_ind, y_ind]],
+                    compression='gzip'
+                ),
+                reference_frame='unknown',
+                conversion=np.nan,
+                rate=30.
+            ) for x_ind, y_ind in zip(
+                range(0, coarse_events.shape[1], 2),
+                range(1, coarse_events.shape[1], 2))
+        ]
+    )
+
+    nwbfile.processing['behavior'].add(coarse_event_obj)
+
     # write NWB file
     with NWBHDF5IO(fpath_out, 'w') as io:
         io.write(nwbfile)
 
 
-def convert_dir(in_dir, events_path, r2_path, n_jobs=1, overwrite: bool = False):
+def convert_dir(in_dir, events_path, r2_path, coarse_events_path, n_jobs=1, overwrite: bool = False):
     all_files = Path(in_dir).iterdir()
     all_data_files = [x.stem for x in all_files if ".h5" in x.suffix]
     nwb_files = [x.stem for x in all_files if ".nwb" in x.suffix]
@@ -245,6 +271,6 @@ def convert_dir(in_dir, events_path, r2_path, n_jobs=1, overwrite: bool = False)
     out_files = [os.path.join(in_dir, f"{Path(x).stem}.nwb") for x in in_files]
 
     Parallel(n_jobs=n_jobs)(
-        delayed(run_conversion)(fpath_in, fpath_out, events_path, r2_path)
+        delayed(run_conversion)(fpath_in, fpath_out, events_path, r2_path, coarse_events_path)
         for fpath_in, fpath_out in zip(in_files, out_files)
     )
