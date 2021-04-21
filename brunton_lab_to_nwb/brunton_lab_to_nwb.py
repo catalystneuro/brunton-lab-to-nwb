@@ -231,28 +231,21 @@ def run_conversion(
 
     # add coarse behavioral labels
     event_fp = f'sub{subject_id}_fullday_{session}'
-    full_fp = coarse_events_path + '//' + event_fp
-    coarse_events = np.load(full_fp, load_pickle=True)
+    full_fp = coarse_events_path + '//' + event_fp + '.npy'
+    coarse_events = np.load(full_fp, allow_pickle=True)
 
-    coarse_event_obj = Position(
-        name='coarse behavior events',
-        spatial_series=[
-            SpatialSeries(
-                name=file['pose_data']['axis0'][x_ind][:-2].decode(),
-                data=H5DataIO(
-                    data=coarse_events[:, [x_ind, y_ind]],
-                    compression='gzip'
-                ),
-                reference_frame='unknown',
-                conversion=np.nan,
-                rate=30.
-            ) for x_ind, y_ind in zip(
-                range(0, coarse_events.shape[1], 2),
-                range(1, coarse_events.shape[1], 2))
-        ]
-    )
+    label, data = np.unique(coarse_events, return_inverse=True)
+    transition_idx = np.where(np.diff(data) != 0)
+    start_t = nwbfile.processing["behavior"].data_interfaces["Position"]['L_Wrist'].starting_time
+    times = np.multiply(transition_idx, (1/30)) + start_t # 30Hz sampling rate
+    max_time = (1/30) * np.shape(coarse_events)[0] + start_t
+    times = np.hstack([0, np.ravel(times), max_time])
+    transition_labels = label[data[transition_idx]]
 
-    nwbfile.processing['behavior'].add(coarse_event_obj)
+    nwbfile.add_epoch_column(name='labels', description='Coarse behavioral labels')
+
+    for start_time, stop_time, label in zip(times[:-1], times[1:], transition_labels):
+        nwbfile.add_epoch(start_time=start_time, stop_time=stop_time, labels=label)
 
     # write NWB file
     with NWBHDF5IO(fpath_out, 'w') as io:
