@@ -4,7 +4,7 @@ import bqplot.pyplot as bqplt
 import matplotlib.pyplot as plt
 import numpy as np
 import plotly.graph_objects as go
-from ipywidgets import widgets, Layout
+from ipywidgets import widgets, Layout, Play
 from matplotlib.colors import to_hex
 from ndx_events import Events
 from nwbwidgets.base import lazy_tabs
@@ -331,7 +331,6 @@ class SkeletonPlot(widgets.VBox):
     ):
         super().__init__()
 
-
         self.position = position
         joint_keys = list(position.spatial_series.keys())
         self.joint_colors = []
@@ -352,23 +351,31 @@ class SkeletonPlot(widgets.VBox):
             self.time_window_controller = foreign_time_window_controller
         frame_ind = timeseries_time_to_ind(self.spatial_series, self.time_window_controller.value[0])
 
-        play_btn = widgets.Button(description="Start", icon="play")
+        self.sample_period = 1 / list(self.position.spatial_series.values())[0].rate
+        self.play = Play(
+            value=0,
+            min=0,
+            max=int(self.time_window_controller.duration.value / self.sample_period),
+            step=1,
+            interval=self.sample_period * 1000
+        )
+
         joint_colors = [to_hex(np.array(unlabel_rgb(x))/255)
-                             for x in DEFAULT_PLOTLY_COLORS]
+                        for x in DEFAULT_PLOTLY_COLORS]
         self.joint_keys = POSITION_KEYS
         self.joint_colors = [
-            joint_colors[0], # l_wrist
-            joint_colors[1], # l_elbow
-            joint_colors[2], # l_shoulder
-            joint_colors[9], # neck
-            joint_colors[4], # nose
-            joint_colors[3], # l_ear
-            joint_colors[5], # r_ear
-            joint_colors[4], # nose
-            joint_colors[9], # neck
-            joint_colors[6], # r_shoulder
-            joint_colors[7], # r_elbow
-            joint_colors[8]  # r_wrist
+            joint_colors[0],  # l_wrist
+            joint_colors[1],  # l_elbow
+            joint_colors[2],  # l_shoulder
+            joint_colors[9],  # neck
+            joint_colors[4],  # nose
+            joint_colors[3],  # l_ear
+            joint_colors[5],  # r_ear
+            joint_colors[4],  # nose
+            joint_colors[9],  # neck
+            joint_colors[6],  # r_shoulder
+            joint_colors[7],  # r_elbow
+            joint_colors[8]   # r_wrist
             ]
         self.skeleton_labels = [
             "L_Wrist",
@@ -387,32 +394,40 @@ class SkeletonPlot(widgets.VBox):
 
         self.fig = bqplt.figure()  # animation_duration=int(1/spatial_series.rate*1000)
         self.plot_skeleton(frame_ind)
+        self.updated_time_range({"new": None})
 
         # Updates list of valid spike times at each change in time range
         self.time_window_controller.observe(self.updated_time_range)
-        play_btn.on_click(self.animate_scatter_chart)
+        self.play.observe(self.animate_scatter_chart)
 
         if show_time_controller:
             self.children = [
                 self.time_window_controller,
                 self.fig,
-                play_btn
+                self.play
             ]
         else:
-            self.children = [self.fig, play_btn]
+            self.children = [self.fig, self.play]
 
     def updated_time_range(self, change=None):
         """Operations to run whenever time range gets updated"""
         if "new" in change:
+
             self.frame_ind_start = timeseries_time_to_ind(
                 self.spatial_series, self.time_window_controller.value[0],
             )
+
             if self.frame_ind_start is np.nan:
                 return print("No data present")
 
             self.frame_ind_end = timeseries_time_to_ind(
                 self.spatial_series, self.time_window_controller.value[1]
             )
+            if self.frame_ind_start > self.play.max:  # make sure min always < max, otherwise throws error
+                self.play.max, self.play.min = self.frame_ind_end, self.frame_ind_start
+            else:
+                self.play.min, self.play.max = self.frame_ind_start, self.frame_ind_end
+            self.play.value = self.frame_ind_start
 
             all_pos = np.vstack([
                 x.data[self.frame_ind_start:self.frame_ind_end]
@@ -438,15 +453,11 @@ class SkeletonPlot(widgets.VBox):
                 self.plot.x = skeleton_vector[:, 0]
                 self.plot.y = skeleton_vector[:, 1]
 
-    def animate_scatter_chart(self, play_btn):
+    def animate_scatter_chart(self, change=None):
+        if change["name"] == "value":
 
-        sample_period = 1/list(self.position.spatial_series.values())[0].rate
+            frame_ind = change["new"]
 
-        last_time = time.time()
-        if self.frame_ind_start is np.nan:
-            return print("No data present")
-
-        for frame_ind in range(self.frame_ind_start, self.frame_ind_end):
             skeleton_vector = []
             for joint in self.joint_keys:
                 skeleton_vector.append(self.position[joint].data[frame_ind])
@@ -458,19 +469,16 @@ class SkeletonPlot(widgets.VBox):
             with self.plot.hold_sync():
                 self.plot.x = skeleton_vector[:, 0]
                 self.plot.y = skeleton_vector[:, 1]
-            if time.time() - last_time < sample_period:
-                time.sleep(sample_period - time.time() + last_time)
-            last_time = time.time()
 
     def calc_centroid(self, skeleton_vector):
-        base_of_neck = (skeleton_vector[2,:] + skeleton_vector[6,:])/2
+        base_of_neck = (skeleton_vector[2, :] + skeleton_vector[6, :])/2
         new_skeleton_vector = np.vstack(
-            [skeleton_vector[0:3,:],
+            [skeleton_vector[0:3, :],
              base_of_neck,
-             skeleton_vector[4,:], # nose
-             skeleton_vector[3,:], # left ear
-             skeleton_vector[5,:], # right ear
-             skeleton_vector[4,:], # nose
+             skeleton_vector[4, :],  # nose
+             skeleton_vector[3, :],  # left ear
+             skeleton_vector[5, :],  # right ear
+             skeleton_vector[4, :],  # nose
              base_of_neck,
              skeleton_vector[6:]
              ])
@@ -604,7 +612,6 @@ class ETAWidget(widgets.VBox):
         )
         self.children = [header_row, out_fig]
 
-
     def trials_psth(self, before=1.5, after=1.5, figsize=(6, 6)):  # time_window
         """
         Trial data by event times and plot
@@ -690,7 +697,6 @@ class ETAWidget(widgets.VBox):
         ax.set_ylabel("Joint Position (pixels)")
         ax.set_xlabel("time (s)")
         ax.axvline(color=align_line_color)
-
 
 
 def compute_speed(pos, pos_tt):
