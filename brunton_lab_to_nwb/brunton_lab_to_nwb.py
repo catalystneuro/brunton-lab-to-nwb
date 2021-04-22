@@ -24,7 +24,7 @@ def run_conversion(
         fpath_in='/Volumes/easystore5T/data/Brunton/subj_01_day_4.h5',
         fpath_out='/Volumes/easystore5T/data/Brunton/subj_01_day_4.nwb',
         events_path='/Volumes/easystore5T/data/Brunton/event_times.csv',
-        r2_path='C:/Users/micha/Desktop/Brunton Lab Data/full_model_r2.npy',
+        r2_path='/Volumes/easystore5T/data/Brunton/full_model_r2.npy',
         special_chans=SPECIAL_CHANNELS,
         session_description='no description'
 ):
@@ -129,26 +129,29 @@ def run_conversion(
     # add custom cols to electrodes table
     elecs_dset = file['chan_info']['block0_values']
 
+    def get_data(label):
+        return elecs_dset[file_elec_col_names == label, :].ravel()[is_elec]
+
     [nwbfile.add_electrode_column(**kwargs) for kwargs in (
         dict(
             name='standard_deviation',
             description="standard deviation of each electrode's data for the entire recording period",
-            data=elecs_dset[file_elec_col_names == 'SD_channels', is_elec]
+            data=get_data(b'SD_channels')
         ),
         dict(
             name='kurtosis',
             description="kurtosis of each electrode's data for the entire recording period",
-            data=elecs_dset[file_elec_col_names == 'Kurt_channels', is_elec]
+            data=get_data(b'Kurt_channels')
         ),
         dict(
             name='median_deviation',
             description="median absolute deviation estimator for standard deviation for each electrode",
-            data=elecs_dset[file_elec_col_names == 'standardizeDenoms', is_elec]
+            data=get_data(b'standardizeDenoms')
         ),
         dict(
             name='good',
             description='good electrodes',
-            data=elecs_dset[file_elec_col_names == 'goodChanInds', is_elec].astype(bool)
+            data=get_data(b'goodChanInds').astype(bool)
         ),
         dict(
             name='low_freq_R2',
