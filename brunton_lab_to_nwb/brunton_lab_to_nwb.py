@@ -41,7 +41,7 @@ def run_conversion(
         identifier=str(uuid.uuid4()),
         session_start_time=datetime.fromtimestamp(file['start_timestamp'][()]),
         subject=Subject(subject_id=subject_id, species="Homo sapiens"),
-        session_id = session
+        session_id=session
     )
 
     # extract electrode groups
@@ -83,13 +83,13 @@ def run_conversion(
                 description='Electrooculography for tracking saccades - right',
             )
     ):
-        if kwargs['name'].encode() in special_chans:
+        if kwargs['name'].encode() in channel_labels_dset:
             nwbfile.add_acquisition(
                 TimeSeries(
                     rate=file['f_sample'][()],
                     conversion=np.nan,
                     unit='V',
-                    data=dset[:, channel_labels_dset == kwargs['name'].encode()],
+                    data=dset[:, list(channel_labels_dset).index(kwargs['name'].encode())],
                     **kwargs
                 )
             )
@@ -130,26 +130,30 @@ def run_conversion(
     # add custom cols to electrodes table
     elecs_dset = file['chan_info']['block0_values']
 
+    def get_data(label):
+        return elecs_dset[file_elec_col_names == label, :].ravel()[is_elec]
+
     [nwbfile.add_electrode_column(**kwargs) for kwargs in (
         dict(
             name='standard_deviation',
             description="standard deviation of each electrode's data for the entire recording period",
-            data=elecs_dset[file_elec_col_names == 'SD_channels', is_elec]
+            data=get_data(b'SD_channels')
         ),
         dict(
             name='kurtosis',
             description="kurtosis of each electrode's data for the entire recording period",
-            data=elecs_dset[file_elec_col_names == 'Kurt_channels', is_elec]
+            data=get_data(b'Kurt_channels')
         ),
         dict(
             name='median_deviation',
             description="median absolute deviation estimator for standard deviation for each electrode",
-            data=elecs_dset[file_elec_col_names == 'standardizeDenoms', is_elec]
+            data=get_data(b'standardizeDenoms')
         ),
         dict(
             name='good',
             description='good electrodes',
-            data=elecs_dset[file_elec_col_names == 'goodChanInds', is_elec].astype(int).astype(bool)
+            data=get_data(b'goodChanInds').astype(bool)
+
         ),
         dict(
             name='low_freq_R2',
