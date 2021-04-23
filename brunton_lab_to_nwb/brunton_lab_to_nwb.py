@@ -14,7 +14,7 @@ from lazy_ops import DatasetView
 from pynwb import NWBFile, NWBHDF5IO, TimeSeries
 from pynwb.behavior import Position, SpatialSeries
 from pynwb.ecephys import ElectricalSeries
-from pynwb.file import Subject
+from pynwb.file import Subject, TimeIntervals
 from ndx_events import Events
 
 SPECIAL_CHANNELS = (b'EOGL', b'EOGR', b'ECGL', b'ECGR')
@@ -23,8 +23,10 @@ SPECIAL_CHANNELS = (b'EOGL', b'EOGR', b'ECGL', b'ECGR')
 def run_conversion(
         fpath_in='/Volumes/easystore5T/data/Brunton/subj_01_day_4.h5',
         fpath_out='/Volumes/easystore5T/data/Brunton/subj_01_day_4.nwb',
-        events_path='/Volumes/easystore5T/data/Brunton/event_times.csv',
-        r2_path='/Volumes/easystore5T/data/Brunton/full_model_r2.npy',
+        events_path='C:/Users/micha/Desktop/Brunton Lab Data/event_times.csv',
+        r2_path='C:/Users/micha/Desktop/Brunton Lab Data/full_model_r2.npy',
+        coarse_events_path='C:/Users/micha/Desktop/Brunton Lab Data/coarse_labels/coarse_labels',
+        reach_features_path='C:/Users/micha/Desktop/Brunton Lab Data/behavioral_features.csv',
         special_chans=SPECIAL_CHANNELS,
         session_description='no description'
 ):
@@ -43,7 +45,6 @@ def run_conversion(
     )
 
     # extract electrode groups
-
     file_elec_col_names = file['chan_info']['axis1'][:]
     elec_data = file['chan_info']['block0_values']
 
@@ -152,6 +153,7 @@ def run_conversion(
             name='good',
             description='good electrodes',
             data=get_data(b'goodChanInds').astype(bool)
+
         ),
         dict(
             name='low_freq_R2',
@@ -231,12 +233,63 @@ def run_conversion(
     # add the Events type to the processing group of the NWB file
     nwbfile.processing['behavior'].add(events)
 
+    # add coarse behavioral labels
+    event_fp = f'sub{subject_id}_fullday_{session}'
+    full_fp = coarse_events_path + '//' + event_fp + '.npy'
+    coarse_events = np.load(full_fp, allow_pickle=True)
+
+    label, data = np.unique(coarse_events, return_inverse=True)
+    transition_idx = np.where(np.diff(data) != 0)
+    start_t = nwbfile.processing["behavior"].data_interfaces["Position"]['L_Wrist'].starting_time
+    rate = nwbfile.processing["behavior"].data_interfaces["Position"]['L_Wrist'].rate
+    times = np.multiply(transition_idx, rate) + start_t # 30Hz sampling rate
+    max_time = rate * np.shape(coarse_events)[0] + start_t
+    times = np.hstack([0, np.ravel(times), max_time])
+    transition_labels = label[data[transition_idx]]
+
+    nwbfile.add_epoch_column(name='labels', description='Coarse behavioral labels')
+
+    for start_time, stop_time, label in zip(times[:-1], times[1:], transition_labels):
+        nwbfile.add_epoch(start_time=start_time, stop_time=stop_time, labels=label)
+
+
+
+    # add additional reaching features
+    reach_features = pd.read_csv(reach_features_path)
+    mask = (reach_features['Subject'] == int(subject_id)) & (reach_features['Recording day'] == int(session))
+    reach_features = reach_features[mask]
+
+    reaches = TimeIntervals(name='reaches', description='Features of each reach')
+    reaches.add_column(name='Reach_magnitude_px', description='Magnitude of reach in pixels')
+    reaches.add_column(name='Reach_angle_degrees', description='Reach angle in degrees')
+    reaches.add_column(name='Onset_speed_px_per_sec', description='Onset speed in pixels / second)')
+    reaches.add_column(name='Speech_ratio', description='Ratio of speech')
+    reaches.add_column(name='Bimanual_ratio', description='Ratio of use of each hand')
+    reaches.add_column(name='Bimanual_class', description='Class of bimanualness')
+    for row in reach_features.iterrows():
+        row_data = row[1]
+        start_time = row_data['Time of day (sec)']
+        stop_time = start_time + row_data['Reach duration (sec)']
+        reaches.add_row(start_time=start_time,
+                        stop_time=stop_time,
+                        Reach_magnitude_px=row_data['Reach magnitude (px)'],
+                        Reach_angle_degrees=row_data['Reach angle (degrees)'],
+                        Onset_speed_px_per_sec=row_data['Onset speed (px/sec)'],
+                        Speech_ratio=row_data['Speech ratio'],
+                        Bimanual_ratio=row_data['Bimanual ratio'],
+                        Bimanual_class=row_data['Bimanual class']
+                        )
+
+    nwbfile.add_time_intervals(reaches)
+
+
     # write NWB file
     with NWBHDF5IO(fpath_out, 'w') as io:
         io.write(nwbfile)
 
 
-def convert_dir(in_dir, events_path, r2_path, n_jobs=1, overwrite: bool = False):
+def convert_dir(in_dir, events_path, r2_path, coarse_events_path, reach_features_path,
+                n_jobs=1, overwrite: bool = False):
     all_files = Path(in_dir).iterdir()
     all_data_files = [x.stem for x in all_files if ".h5" in x.suffix]
     nwb_files = [x.stem for x in all_files if ".nwb" in x.suffix]
@@ -248,6 +301,6 @@ def convert_dir(in_dir, events_path, r2_path, n_jobs=1, overwrite: bool = False)
     out_files = [os.path.join(in_dir, f"{Path(x).stem}.nwb") for x in in_files]
 
     Parallel(n_jobs=n_jobs)(
-        delayed(run_conversion)(fpath_in, fpath_out, events_path, r2_path)
+        delayed(run_conversion)(fpath_in, fpath_out, events_path, r2_path, coarse_events_path, reach_features_path)
         for fpath_in, fpath_out in zip(in_files, out_files)
     )
