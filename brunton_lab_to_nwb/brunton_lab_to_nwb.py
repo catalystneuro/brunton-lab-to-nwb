@@ -263,9 +263,20 @@ def run_conversion(
     reaches.add_column(name='Reach_magnitude_px', description='Magnitude of reach in pixels')
     reaches.add_column(name='Reach_angle_degrees', description='Reach angle in degrees')
     reaches.add_column(name='Onset_speed_px_per_sec', description='Onset speed in pixels / second)')
-    reaches.add_column(name='Speech_ratio', description='Ratio of speech')
-    reaches.add_column(name='Bimanual_ratio', description='Ratio of use of each hand')
-    reaches.add_column(name='Bimanual_class', description='Class of bimanualness')
+    reaches.add_column(name='Speech_ratio', description='rough estimation of whether someone is likely to be speaking '
+                                                        'based on a power ratio of audio data; ranges from 0 (no '
+                                                        'speech) to 1 (high likelihood of speech)h')
+    reaches.add_column(name='Bimanual_ratio', description='ratio of ipsilateral wrist reach magnitude to the sum of '
+                                                          'ipsilateral and contralateral wrist magnitudes; ranges from '
+                                                          '0 (unimanual/contralateral move only) to 1 (only ipsilateral'
+                                                          ' arm moving); 0.5 indicates bimanual movement')
+    reaches.add_column(name='Bimanual_overlap', description='The amount of ipsilateral and contralateral wrist temporal'
+                                                            'overlap as a fraction of the entire contralateral movement'
+                                                            ' duration')
+    reaches.add_column(name='Bimanual_class', description='binary feature that classifies each movement event as '
+                                                          'unimanual (0) or bimanual (1) based on how close in time a '
+                                                          'ipsilateral wrist movement started relative to each '
+                                                          'contralateral wrist movement events')
     for row in reach_features.iterrows():
         row_data = row[1]
         start_time = row_data['Time of day (sec)']
@@ -277,6 +288,7 @@ def run_conversion(
                         Onset_speed_px_per_sec=row_data['Onset speed (px/sec)'],
                         Speech_ratio=row_data['Speech ratio'],
                         Bimanual_ratio=row_data['Bimanual ratio'],
+                        Bimanual_overlap=row_data['Bimanual overlap (sec)'],
                         Bimanual_class=row_data['Bimanual class']
                         )
 
