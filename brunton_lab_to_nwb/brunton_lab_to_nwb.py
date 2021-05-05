@@ -48,7 +48,7 @@ def run_conversion(
     file_elec_col_names = file['chan_info']['axis1'][:]
     elec_data = file['chan_info']['block0_values']
 
-    re_exp = re.compile("([a-zA-Z]+)([0-9]+)")
+    re_exp = re.compile("([ a-zA-Z]+)([0-9]+)")
 
     channel_labels_dset = file['chan_info']['axis0']
 
@@ -302,9 +302,9 @@ def run_conversion(
 
 def convert_dir(in_dir, events_path, r2_path, coarse_events_path, reach_features_path,
                 n_jobs=1, overwrite: bool = False):
-    all_files = Path(in_dir).iterdir()
-    all_data_files = [x.stem for x in all_files if ".h5" in x.suffix]
-    nwb_files = [x.stem for x in all_files if ".nwb" in x.suffix]
+    in_dir = Path(in_dir)
+    all_data_files = [x.stem for x in in_dir.iterdir() if ".h5" in x.suffix]
+    nwb_files = [x.stem for x in in_dir.iterdir() if ".nwb" in x.suffix]
 
     if overwrite:
         in_files = [os.path.join(in_dir, f"{x}.h5") for x in all_data_files]
