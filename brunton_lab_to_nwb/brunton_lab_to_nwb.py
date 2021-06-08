@@ -25,6 +25,7 @@ def run_conversion(
         fpath_out='/Volumes/easystore5T/data/Brunton/subj_01_day_4.nwb',
         events_path='C:/Users/micha/Desktop/Brunton Lab Data/event_times.csv',
         r2_path='C:/Users/micha/Desktop/Brunton Lab Data/full_model_r2.npy',
+        elec_loc_labels='elec_loc_labels.csv',
         coarse_events_path='C:/Users/micha/Desktop/Brunton Lab Data/coarse_labels/coarse_labels',
         reach_features_path='C:/Users/micha/Desktop/Brunton Lab Data/behavioral_features.csv',
         special_chans=SPECIAL_CHANNELS,
@@ -95,7 +96,7 @@ def run_conversion(
             )
 
     # add electrode groups
-    df = pd.read_csv('/mnt/scrap/cbaker239/Brunton/metadata/elec_loc_labels.csv')
+    df = pd.read_csv(elec_loc_labels)
     df_subject = df[df['subject_ID'] == 'subj' + subject_id]
     electrode_group_descriptions = {row['label']: row['long_name'] for _, row in df_subject.iterrows()}
 
@@ -299,8 +300,16 @@ def run_conversion(
         io.write(nwbfile)
 
 
-def convert_dir(in_dir, events_path, r2_path, coarse_events_path, reach_features_path,
-                n_jobs=1, overwrite: bool = False):
+def convert_dir(
+    in_dir,
+    events_path,
+    r2_path,
+    coarse_events_path,
+    reach_features_path,
+    elec_loc_labels,
+    n_jobs=1,
+    overwrite: bool = False
+):
     all_data_files = [x.stem for x in Path(in_dir).iterdir() if ".h5" in x.suffix]
     nwb_files = [x.stem for x in Path(in_dir).iterdir() if ".nwb" in x.suffix]
 
@@ -311,6 +320,14 @@ def convert_dir(in_dir, events_path, r2_path, coarse_events_path, reach_features
     out_files = [os.path.join(in_dir, f"{Path(x).stem}.nwb") for x in in_files]
 
     Parallel(n_jobs=n_jobs)(
-        delayed(run_conversion)(fpath_in, fpath_out, events_path, r2_path, coarse_events_path, reach_features_path)
+        delayed(run_conversion)(
+            fpath_in,
+            fpath_out,
+            events_path,
+            r2_path,
+            coarse_events_path,
+            reach_features_path,
+            elec_loc_labels
+        )
         for fpath_in, fpath_out in zip(in_files, out_files)
     )
