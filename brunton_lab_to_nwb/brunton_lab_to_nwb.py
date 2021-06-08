@@ -25,9 +25,9 @@ def run_conversion(
         fpath_out='/Volumes/easystore5T/data/Brunton/subj_01_day_4.nwb',
         events_path='C:/Users/micha/Desktop/Brunton Lab Data/event_times.csv',
         r2_path='C:/Users/micha/Desktop/Brunton Lab Data/full_model_r2.npy',
-        elec_loc_labels='elec_loc_labels.csv',
         coarse_events_path='C:/Users/micha/Desktop/Brunton Lab Data/coarse_labels/coarse_labels',
         reach_features_path='C:/Users/micha/Desktop/Brunton Lab Data/behavioral_features.csv',
+        elec_loc_labels_path='elec_loc_labels.csv',
         special_chans=SPECIAL_CHANNELS,
         session_description='no description'
 ):
@@ -96,7 +96,7 @@ def run_conversion(
             )
 
     # add electrode groups
-    df = pd.read_csv(elec_loc_labels)
+    df = pd.read_csv(elec_loc_labels_path)
     df_subject = df[df['subject_ID'] == 'subj' + subject_id]
     electrode_group_descriptions = {row['label']: row['long_name'] for _, row in df_subject.iterrows()}
 
@@ -226,11 +226,12 @@ def run_conversion(
     timestamps = events['Event time'].values
     events = events.reset_index()
 
-    events = Events(name='ReachEvents',
-                    description=events['Event type'][0], # Specifies which arm was used
-                    timestamps=timestamps,
-                    resolution=2e-3,  # resolution of the timestamps, i.e., smallest possible difference between timestamps
-                    )
+    events = Events(
+        name='ReachEvents',
+        description=events['Event type'][0],  # Specifies which arm was used
+        timestamps=timestamps,
+        resolution=2e-3,  # resolution of the timestamps, i.e., smallest possible difference between timestamps
+    )
 
     # add the Events type to the processing group of the NWB file
     nwbfile.processing['behavior'].add(events)
@@ -244,7 +245,7 @@ def run_conversion(
     transition_idx = np.where(np.diff(data) != 0)
     start_t = nwbfile.processing["behavior"].data_interfaces["Position"]['L_Wrist'].starting_time
     rate = nwbfile.processing["behavior"].data_interfaces["Position"]['L_Wrist'].rate
-    times = np.divide(transition_idx, rate) + start_t # 30Hz sampling rate
+    times = np.divide(transition_idx, rate) + start_t  # 30Hz sampling rate
     max_time = (np.shape(coarse_events)[0] / rate) + start_t
     times = np.hstack([start_t, np.ravel(times), max_time])
     transition_labels = np.hstack([label[data[transition_idx]], label[data[-1]]])
@@ -294,8 +295,6 @@ def run_conversion(
 
     nwbfile.add_time_intervals(reaches)
 
-
-    # write NWB file
     with NWBHDF5IO(fpath_out, 'w') as io:
         io.write(nwbfile)
 
@@ -306,7 +305,7 @@ def convert_dir(
     r2_path,
     coarse_events_path,
     reach_features_path,
-    elec_loc_labels,
+    elec_loc_labels_path,
     n_jobs=1,
     overwrite: bool = False
 ):
@@ -327,7 +326,7 @@ def convert_dir(
             r2_path,
             coarse_events_path,
             reach_features_path,
-            elec_loc_labels
+            elec_loc_labels_path
         )
         for fpath_in, fpath_out in zip(in_files, out_files)
     )
