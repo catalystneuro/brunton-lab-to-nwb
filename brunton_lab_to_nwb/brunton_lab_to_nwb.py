@@ -27,6 +27,7 @@ def run_conversion(
         r2_path='C:/Users/micha/Desktop/Brunton Lab Data/full_model_r2.npy',
         coarse_events_path='C:/Users/micha/Desktop/Brunton Lab Data/coarse_labels/coarse_labels',
         reach_features_path='C:/Users/micha/Desktop/Brunton Lab Data/behavioral_features.csv',
+        elec_loc_labels_path='elec_loc_labels.csv',
         special_chans=SPECIAL_CHANNELS,
         session_description='no description'
 ):
@@ -95,7 +96,7 @@ def run_conversion(
             )
 
     # add electrode groups
-    df = pd.read_csv('elec_loc_labels.csv')
+    df = pd.read_csv(elec_loc_labels_path)
     df_subject = df[df['subject_ID'] == 'subj' + subject_id]
     electrode_group_descriptions = {row['label']: row['long_name'] for _, row in df_subject.iterrows()}
 
@@ -172,6 +173,7 @@ def run_conversion(
 
     # add ElectricalSeries
     elecs_data = dset.lazy_slice[:, is_elec]
+    n_bytes = np.dtype(elecs_data).itemsize
 
     nwbfile.add_acquisition(
         ElectricalSeries(
@@ -180,7 +182,7 @@ def run_conversion(
                 data=DataChunkIterator(
                     data=elecs_data,
                     maxshape=elecs_data.shape,
-                    buffer_size=int(1e4)
+                    buffer_size=int(5000 * 1e6) // elecs_data.shape[1] * n_bytes
                 ),
                 compression='gzip'
             ),
@@ -224,11 +226,12 @@ def run_conversion(
     timestamps = events['Event time'].values
     events = events.reset_index()
 
-    events = Events(name='ReachEvents',
-                    description=events['Event type'][0], # Specifies which arm was used
-                    timestamps=timestamps,
-                    resolution=2e-3,  # resolution of the timestamps, i.e., smallest possible difference between timestamps
-                    )
+    events = Events(
+        name='ReachEvents',
+        description=events['Event type'][0],  # Specifies which arm was used
+        timestamps=timestamps,
+        resolution=2e-3,  # resolution of the timestamps, i.e., smallest possible difference between timestamps
+    )
 
     # add the Events type to the processing group of the NWB file
     nwbfile.processing['behavior'].add(events)
@@ -242,7 +245,7 @@ def run_conversion(
     transition_idx = np.where(np.diff(data) != 0)
     start_t = nwbfile.processing["behavior"].data_interfaces["Position"]['L_Wrist'].starting_time
     rate = nwbfile.processing["behavior"].data_interfaces["Position"]['L_Wrist'].rate
-    times = np.divide(transition_idx, rate) + start_t # 30Hz sampling rate
+    times = np.divide(transition_idx, rate) + start_t  # 30Hz sampling rate
     max_time = (np.shape(coarse_events)[0] / rate) + start_t
     times = np.hstack([start_t, np.ravel(times), max_time])
     transition_labels = np.hstack([label[data[transition_idx]], label[data[-1]]])
@@ -292,17 +295,22 @@ def run_conversion(
 
     nwbfile.add_time_intervals(reaches)
 
-
-    # write NWB file
     with NWBHDF5IO(fpath_out, 'w') as io:
         io.write(nwbfile)
 
 
-def convert_dir(in_dir, events_path, r2_path, coarse_events_path, reach_features_path,
-                n_jobs=1, overwrite: bool = False):
-    in_dir = Path(in_dir)
-    all_data_files = [x.stem for x in in_dir.iterdir() if ".h5" in x.suffix]
-    nwb_files = [x.stem for x in in_dir.iterdir() if ".nwb" in x.suffix]
+def convert_dir(
+    in_dir,
+    events_path,
+    r2_path,
+    coarse_events_path,
+    reach_features_path,
+    elec_loc_labels_path,
+    n_jobs=1,
+    overwrite: bool = False
+):
+    all_data_files = [x.stem for x in Path(in_dir).iterdir() if ".h5" in x.suffix]
+    nwb_files = [x.stem for x in Path(in_dir).iterdir() if ".nwb" in x.suffix]
 
     if overwrite:
         in_files = [os.path.join(in_dir, f"{x}.h5") for x in all_data_files]
@@ -311,6 +319,14 @@ def convert_dir(in_dir, events_path, r2_path, coarse_events_path, reach_features
     out_files = [os.path.join(in_dir, f"{Path(x).stem}.nwb") for x in in_files]
 
     Parallel(n_jobs=n_jobs)(
-        delayed(run_conversion)(fpath_in, fpath_out, events_path, r2_path, coarse_events_path, reach_features_path)
+        delayed(run_conversion)(
+            fpath_in,
+            fpath_out,
+            events_path,
+            r2_path,
+            coarse_events_path,
+            reach_features_path,
+            elec_loc_labels_path
+        )
         for fpath_in, fpath_out in zip(in_files, out_files)
     )
