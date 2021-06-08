@@ -48,7 +48,7 @@ def run_conversion(
     file_elec_col_names = file['chan_info']['axis1'][:]
     elec_data = file['chan_info']['block0_values']
 
-    re_exp = re.compile("([a-zA-Z]+)([0-9]+)")
+    re_exp = re.compile("([ a-zA-Z]+)([0-9]+)")
 
     channel_labels_dset = file['chan_info']['axis0']
 
@@ -95,7 +95,7 @@ def run_conversion(
             )
 
     # add electrode groups
-    df = pd.read_csv('elec_loc_labels.csv')
+    df = pd.read_csv('/mnt/scrap/cbaker239/Brunton/metadata/elec_loc_labels.csv')
     df_subject = df[df['subject_ID'] == 'subj' + subject_id]
     electrode_group_descriptions = {row['label']: row['long_name'] for _, row in df_subject.iterrows()}
 
@@ -172,6 +172,7 @@ def run_conversion(
 
     # add ElectricalSeries
     elecs_data = dset.lazy_slice[:, is_elec]
+    n_bytes = np.dtype(elecs_data).itemsize
 
     nwbfile.add_acquisition(
         ElectricalSeries(
@@ -180,7 +181,7 @@ def run_conversion(
                 data=DataChunkIterator(
                     data=elecs_data,
                     maxshape=elecs_data.shape,
-                    buffer_size=int(1e4)
+                    buffer_size=int(5000 * 1e6) // elecs_data.shape[1] * n_bytes
                 ),
                 compression='gzip'
             ),
@@ -302,9 +303,8 @@ def run_conversion(
 
 def convert_dir(in_dir, events_path, r2_path, coarse_events_path, reach_features_path,
                 n_jobs=1, overwrite: bool = False):
-    all_files = Path(in_dir).iterdir()
-    all_data_files = [x.stem for x in all_files if ".h5" in x.suffix]
-    nwb_files = [x.stem for x in all_files if ".nwb" in x.suffix]
+    all_data_files = [x.stem for x in Path(in_dir).iterdir() if ".h5" in x.suffix]
+    nwb_files = [x.stem for x in Path(in_dir).iterdir() if ".nwb" in x.suffix]
 
     if overwrite:
         in_files = [os.path.join(in_dir, f"{x}.h5") for x in all_data_files]
