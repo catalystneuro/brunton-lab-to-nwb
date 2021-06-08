@@ -45,6 +45,7 @@ subj09,RAT,right anterior temporal
 subj09,RATD,right anterior temporal depth
 subj09,RFD,right frontal depth
 subj09,RPT,right posterior temporal
+subj09,RPTD,right posterior temporal depth
 subj10,AHD,anterior hippocampal depth
 subj10,AID,anterior insular depth
 subj10,GRID,ECoG grid
@@ -61,6 +62,9 @@ subj11,LAT,left anterior temporal
 subj11,LMT,left medial temporal
 subj11,LPT,left posterior temporal
 subj11,LTP,left temporal pole
+subj11,LTPD,left temporal pole depth
+subj11,LATD,left anterior temporal depth
+subj11,LMTD,left medial temporal depth
 subj12,AHD,anterior hippocampal depth
 subj12,AID,anterior insular depth
 subj12,GRID,ECoG grid
@@ -71,3 +75,4 @@ subj12,LPT,left posterior temporal
 subj12,LTP,left temporal pole
 subj12,PHD,posterior hippocampal depth
 subj12,PID,posterior insular depth
+subj12,RPTD,right posterior temporal depth

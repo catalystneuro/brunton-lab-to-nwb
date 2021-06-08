@@ -243,17 +243,15 @@ def run_conversion(
     transition_idx = np.where(np.diff(data) != 0)
     start_t = nwbfile.processing["behavior"].data_interfaces["Position"]['L_Wrist'].starting_time
     rate = nwbfile.processing["behavior"].data_interfaces["Position"]['L_Wrist'].rate
-    times = np.multiply(transition_idx, rate) + start_t # 30Hz sampling rate
-    max_time = rate * np.shape(coarse_events)[0] + start_t
-    times = np.hstack([0, np.ravel(times), max_time])
-    transition_labels = label[data[transition_idx]]
+    times = np.divide(transition_idx, rate) + start_t # 30Hz sampling rate
+    max_time = (np.shape(coarse_events)[0] / rate) + start_t
+    times = np.hstack([start_t, np.ravel(times), max_time])
+    transition_labels = np.hstack([label[data[transition_idx]], label[data[-1]]])
 
     nwbfile.add_epoch_column(name='labels', description='Coarse behavioral labels')
 
     for start_time, stop_time, label in zip(times[:-1], times[1:], transition_labels):
         nwbfile.add_epoch(start_time=start_time, stop_time=stop_time, labels=label)
-
-
 
     # add additional reaching features
     reach_features = pd.read_csv(reach_features_path)
