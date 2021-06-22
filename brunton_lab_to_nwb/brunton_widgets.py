@@ -435,7 +435,6 @@ class SkeletonPlot(widgets.VBox):
                 skeleton_vector.append(self.position[joint].data[self.frame_ind_start])
             skeleton_vector = np.vstack(skeleton_vector)
             skeleton_vector = self.calc_centroid(skeleton_vector)
-            print(skeleton_vector)
 
             with self.fig.batch_update():
                 self.fig.update_traces(
