@@ -1,6 +1,3 @@
-import time
-
-import bqplot.pyplot as bqplt
 import matplotlib.pyplot as plt
 import numpy as np
 import plotly.graph_objects as go
@@ -29,16 +26,16 @@ from pynwb.ecephys import ElectricalSeries
 from pynwb.file import NWBFile
 
 POSITION_KEYS = [
-            "L_Wrist",
-            "L_Elbow",
-            "L_Shoulder",
-            "L_Ear",
-            "Nose",
-            "R_Ear",
-            "R_Shoulder",
-            "R_Elbow",
-            "R_Wrist",
-        ]
+    "L_Wrist",
+    "L_Elbow",
+    "L_Shoulder",
+    "L_Ear",
+    "Nose",
+    "R_Ear",
+    "R_Shoulder",
+    "R_Elbow",
+    "R_Wrist",
+]
 
 
 class BruntonDashboard(widgets.VBox):
@@ -123,17 +120,11 @@ class BruntonDashboard(widgets.VBox):
         tab1_hbox_header = widgets.HBox([time_trace_window_controller])
 
         tab1_row1_widgets = widgets.HBox(
-            [
-                skeleton,
-                jointpos,
-            ],
+            [skeleton, jointpos],
             layout=self.row_layout,
         )
         tab1_row2_widgets = widgets.HBox(
-            [
-                brain,
-                ecog,
-            ],
+            [brain, ecog],
             layout=self.row_layout,
         )
         tab1 = widgets.VBox(
@@ -176,7 +167,7 @@ class BruntonDashboard(widgets.VBox):
             nwb_file.processing["behavior"].data_interfaces["Position"],
             foreign_time_window_controller=time_trace_window_controller,
         )
-        text =  "(a) Tracked joints"
+        text = "(a) Tracked joints"
         skeleton_label = widgets.HTML(value=f"<b><font size=4>{text}</b>")
         skeleton = widgets.VBox(
             [skeleton_label, skeleton_widget], layout=self.box_layout
@@ -197,17 +188,11 @@ class BruntonDashboard(widgets.VBox):
 
         tab1_hbox_header = widgets.HBox([time_trace_window_controller])
         tab1_row1_widgets = widgets.HBox(
-            [
-                skeleton,
-                jointpos,
-            ],
+            [skeleton, jointpos],
             layout=self.row_layout,
         )
         tab1_row2_widgets = widgets.HBox(
-            [
-                brain,
-                ecog,
-            ],
+            [brain, ecog],
             layout=self.row_layout,
         )
         tab1 = widgets.VBox([tab1_hbox_header, tab1_row1_widgets, tab1_row2_widgets])
@@ -231,9 +216,7 @@ class BruntonDashboard(widgets.VBox):
 
         # tab2_hbox_header = widgets.HBox([event_trace_window_controller])
         tab2_row1_widgets = widgets.HBox(
-            [
-                eta_widget,
-            ],
+            [eta_widget],
             layout=self.box_layout,
         )
 
@@ -349,7 +332,9 @@ class SkeletonPlot(widgets.VBox):
         else:
             show_time_controller = False
             self.time_window_controller = foreign_time_window_controller
-        frame_ind = timeseries_time_to_ind(self.spatial_series, self.time_window_controller.value[0])
+        frame_ind = timeseries_time_to_ind(
+            self.spatial_series, self.time_window_controller.value[0]
+        )
 
         self.sample_period = 1 / list(self.position.spatial_series.values())[0].rate
         self.play = Play(
@@ -357,11 +342,12 @@ class SkeletonPlot(widgets.VBox):
             min=0,
             max=int(self.time_window_controller.duration.value / self.sample_period),
             step=1,
-            interval=self.sample_period * 1000
+            interval=self.sample_period * 1000,
         )
 
-        joint_colors = [to_hex(np.array(unlabel_rgb(x))/255)
-                        for x in DEFAULT_PLOTLY_COLORS]
+        joint_colors = [
+            to_hex(np.array(unlabel_rgb(x)) / 255) for x in DEFAULT_PLOTLY_COLORS
+        ]
         self.joint_keys = POSITION_KEYS
         self.joint_colors = [
             joint_colors[0],  # l_wrist
@@ -375,8 +361,8 @@ class SkeletonPlot(widgets.VBox):
             joint_colors[9],  # neck
             joint_colors[6],  # r_shoulder
             joint_colors[7],  # r_elbow
-            joint_colors[8]   # r_wrist
-            ]
+            joint_colors[8],  # r_wrist
+        ]
         self.skeleton_labels = [
             "L_Wrist",
             "L_Elbow",
@@ -392,7 +378,9 @@ class SkeletonPlot(widgets.VBox):
             "R_Wrist",
         ]
 
-        self.fig = bqplt.figure()  # animation_duration=int(1/spatial_series.rate*1000)
+        self.fig = (
+            go.FigureWidget()
+        )  # animation_duration=int(1/spatial_series.rate*1000)
         self.plot_skeleton(frame_ind)
         self.updated_time_range({"new": None})
 
@@ -401,11 +389,7 @@ class SkeletonPlot(widgets.VBox):
         self.play.observe(self.animate_scatter_chart)
 
         if show_time_controller:
-            self.children = [
-                self.time_window_controller,
-                self.fig,
-                self.play
-            ]
+            self.children = [self.time_window_controller, self.fig, self.play]
         else:
             self.children = [self.fig, self.play]
 
@@ -414,7 +398,8 @@ class SkeletonPlot(widgets.VBox):
         if "new" in change:
 
             self.frame_ind_start = timeseries_time_to_ind(
-                self.spatial_series, self.time_window_controller.value[0],
+                self.spatial_series,
+                self.time_window_controller.value[0],
             )
 
             if self.frame_ind_start is np.nan:
@@ -423,35 +408,39 @@ class SkeletonPlot(widgets.VBox):
             self.frame_ind_end = timeseries_time_to_ind(
                 self.spatial_series, self.time_window_controller.value[1]
             )
-            if self.frame_ind_start > self.play.max:  # make sure min always < max, otherwise throws error
+            if (
+                self.frame_ind_start > self.play.max
+            ):  # make sure min always < max, otherwise throws error
                 self.play.max, self.play.min = self.frame_ind_end, self.frame_ind_start
             else:
                 self.play.min, self.play.max = self.frame_ind_start, self.frame_ind_end
             self.play.value = self.frame_ind_start
 
-            all_pos = np.vstack([
-                x.data[self.frame_ind_start:self.frame_ind_end]
-                for x in self.position.spatial_series.values()
-            ])
+            # all_pos = np.vstack(
+            #     [
+            #         x.data[self.frame_ind_start : self.frame_ind_end]
+            #         for x in self.position.spatial_series.values()
+            #     ]
+            # )
 
-            if not np.all(np.isnan(all_pos)):
-                self.fig.axes[0].scale.min = np.nanmin(all_pos[:, 0])
-                self.fig.axes[0].scale.max = np.nanmax(all_pos[:, 0]) + 20
-
-                self.fig.axes[1].scale.max = np.nanmin(all_pos[:, 1])
-                self.fig.axes[1].scale.min = np.nanmax(all_pos[:, 1])
+            # if not np.all(np.isnan(all_pos)):
+            # self.fig.axes[0].scale.min = np.nanmin(all_pos[:, 0])
+            # self.fig.axes[0].scale.max = np.nanmax(all_pos[:, 0]) + 20
+            #
+            # self.fig.axes[1].scale.max = np.nanmin(all_pos[:, 1])
+            # self.fig.axes[1].scale.min = np.nanmax(all_pos[:, 1])
 
             skeleton_vector = []
             for joint in self.joint_keys:
                 skeleton_vector.append(self.position[joint].data[self.frame_ind_start])
             skeleton_vector = np.vstack(skeleton_vector)
             skeleton_vector = self.calc_centroid(skeleton_vector)
-            with self.scat.hold_sync():
-                self.scat.x = skeleton_vector[:, 0]
-                self.scat.y = skeleton_vector[:, 1]
-            with self.plot.hold_sync():
-                self.plot.x = skeleton_vector[:, 0]
-                self.plot.y = skeleton_vector[:, 1]
+            print(skeleton_vector)
+
+            with self.fig.batch_update():
+                self.fig.update_traces(
+                    x=skeleton_vector[:, 0], y=-skeleton_vector[:, 1]
+                )
 
     def animate_scatter_chart(self, change=None):
         if change["name"] == "value":
@@ -463,25 +452,25 @@ class SkeletonPlot(widgets.VBox):
                 skeleton_vector.append(self.position[joint].data[frame_ind])
             skeleton_vector = np.vstack(skeleton_vector)
             skeleton_vector = self.calc_centroid(skeleton_vector)
-            with self.scat.hold_sync():
-                self.scat.x = skeleton_vector[:, 0]
-                self.scat.y = skeleton_vector[:, 1]
-            with self.plot.hold_sync():
-                self.plot.x = skeleton_vector[:, 0]
-                self.plot.y = skeleton_vector[:, 1]
+            with self.fig.batch_update():
+                self.fig.update_traces(
+                    x=skeleton_vector[:, 0], y=-skeleton_vector[:, 1]
+                )
 
     def calc_centroid(self, skeleton_vector):
-        base_of_neck = (skeleton_vector[2, :] + skeleton_vector[6, :])/2
+        base_of_neck = (skeleton_vector[2, :] + skeleton_vector[6, :]) / 2
         new_skeleton_vector = np.vstack(
-            [skeleton_vector[0:3, :],
-             base_of_neck,
-             skeleton_vector[4, :],  # nose
-             skeleton_vector[3, :],  # left ear
-             skeleton_vector[5, :],  # right ear
-             skeleton_vector[4, :],  # nose
-             base_of_neck,
-             skeleton_vector[6:]
-             ])
+            [
+                skeleton_vector[0:3, :],
+                base_of_neck,
+                skeleton_vector[4, :],  # nose
+                skeleton_vector[3, :],  # left ear
+                skeleton_vector[5, :],  # right ear
+                skeleton_vector[4, :],  # nose
+                base_of_neck,
+                skeleton_vector[6:],
+            ]
+        )
 
         return new_skeleton_vector
 
@@ -493,57 +482,34 @@ class SkeletonPlot(widgets.VBox):
 
         skeleton_vector = np.vstack(skeleton_vector)
         skeleton_vector = self.calc_centroid(skeleton_vector)
-        self.fig.layout.height = "500px"
-        self.fig.layout.width = "600px"
 
-
-
-        self.plot = bqplt.plot(
-            x=skeleton_vector[:, 0],
-            y=skeleton_vector[:, 1],
-            colors=self.joint_colors,
-            default_size=200,
-            marker="circle",
-            names=self.skeleton_labels,
+        self.fig.add_trace(
+            go.Scatter(
+                x=skeleton_vector[:, 0],
+                y=-skeleton_vector[:, 1],
+                mode="lines+markers+text",
+                marker_color=self.joint_colors,
+                marker_size=12,
+                text=self.skeleton_labels,
+                hoverinfo="text",
+                textposition="bottom center",
+            )
         )
 
-        self.scat = bqplt.scatter(
-            x=skeleton_vector[:, 0],
-            y=skeleton_vector[:, 1],
-            colors=self.joint_colors,
-            default_size=200,
-            marker="circle",
-            names=self.skeleton_labels,
+        self.fig.update_layout(
+            height=500,
+            width=600,
+            xaxis=dict(
+                showgrid=False,  # thin lines in the background
+                zeroline=False,  # thick line at x=0
+                visible=False,  # numbers below
+            ),
+            yaxis=dict(
+                showgrid=False,  # thin lines in the background
+                zeroline=False,  # thick line at x=0
+                visible=False,  # numbers below
+            ),
         )
-
-        bqplt.grids(value="none")
-
-        # self.fig.add_trace(
-        #     go.Scatter(x=skeleton_vector[:,0],
-        #                y=-skeleton_vector[:,1],
-        #                mode='lines+markers+text',
-        #                marker_color=self.joint_colors,
-        #                marker_size=12,
-        #                text= joint_keys,
-        #                hoverinfo='text',
-        #                textposition="bottom center"
-        #                )
-        # )
-
-        # options = {'color': dict(label='Category', orientation='vertical', side='right')}
-
-        # self.fig.update_layout(
-        #     xaxis = dict(
-        #             showgrid=False,  # thin lines in the background
-        #             zeroline=False,  # thick line at x=0
-        #             visible=False,  # numbers below
-        #             ),
-        #     yaxis = dict(
-        #             showgrid=False,  # thin lines in the background
-        #             zeroline=False,  # thick line at x=0
-        #             visible=False,  # numbers below
-        #             )
-        # )
 
 
 class ETAWidget(widgets.VBox):
@@ -590,7 +556,6 @@ class ETAWidget(widgets.VBox):
         self.events = events.timestamps[:]
 
         self.controls = dict(after=after_ft, before=before_ft)
-
 
         out_fig = interactive_output(self.trials_psth, self.controls)
         # self.time_window_controller.observe(self.updated_time_range)
