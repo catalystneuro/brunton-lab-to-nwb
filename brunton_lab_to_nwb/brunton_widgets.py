@@ -8,7 +8,7 @@ from nwbwidgets.base import lazy_tabs
 from nwbwidgets.brains import HumanElectrodesPlotlyWidget
 from nwbwidgets.controllers import StartAndDurationController
 from nwbwidgets.ecephys import ElectricalSeriesWidget
-from nwbwidgets.timeseries import SingleTraceWidget, SeparateTracesPlotlyWidget
+from nwbwidgets.timeseries import SingleTracePlotlyWidget, SeparateTracesPlotlyWidget
 from nwbwidgets.utils.timeseries import (
     align_by_times,
     get_timeseries_tt,
@@ -224,7 +224,7 @@ class BruntonDashboard(widgets.VBox):
         return tab2
 
 
-class AllPositionTracesPlotlyWidget(SingleTraceWidget):
+class AllPositionTracesPlotlyWidget(SingleTracePlotlyWidget):
     def set_out_fig(self):
 
         timeseries = self.controls["timeseries"].value
