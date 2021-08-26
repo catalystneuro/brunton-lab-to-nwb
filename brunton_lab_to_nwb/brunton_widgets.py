@@ -10,7 +10,7 @@ from nwbwidgets.controllers import StartAndDurationController
 from nwbwidgets.ecephys import ElectricalSeriesWidget
 from nwbwidgets.timeseries import SingleTracePlotlyWidget, SeparateTracesPlotlyWidget
 from nwbwidgets.utils.timeseries import (
-    align_by_times,
+    align_by_times_with_rate,
     get_timeseries_tt,
     timeseries_time_to_ind,
     get_timeseries_in_units,
@@ -599,7 +599,7 @@ class ETAWidget(widgets.VBox):
         starts = self.events - before
         stops = self.events + after
 
-        trials = align_by_times(self.spatial_series, starts, stops)
+        trials = align_by_times_with_rate(self.spatial_series, starts, stops)
 
         if trials.size == 0:
             return print("No trials present")
