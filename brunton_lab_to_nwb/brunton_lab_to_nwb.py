@@ -1,7 +1,7 @@
 import os
 import re
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -19,6 +19,42 @@ from ndx_events import Events
 
 
 SPECIAL_CHANNELS = (b"EOGL", b"EOGR", b"ECGL", b"ECGR")
+SECONDS_PER_DAY = 86400
+
+# The source times are the hospital's local wall-clock times. The source encodes them as if they were UTC, and the
+# offset of the hospital's clock from UTC is unknown. So the times are decoded in UTC, which keeps the wall-clock date
+# and time of day, and session_start_time is given with a +00:00 offset. The session description says the same.
+TIME_ZONE_NOTE = (
+    "All times are the hospital's local wall-clock times. Their offset from UTC is unknown, so session_start_time "
+    "is given with a +00:00 offset. The session starts at midnight of the recording day, and every time in the "
+    "file counts from that midnight."
+)
+
+
+def get_session_clock(start_timestamp):
+    """Return the session start time and the offset of the first ECoG sample.
+
+    The session starts at midnight of the recording day. The pose, the coarse behavioral labels and the reach
+    features count from that midnight. The ECoG, EOG and ECG start at `start_timestamp`, and the reach events count
+    from the first ECoG sample, so these get the offset.
+
+    Parameters
+    ----------
+    start_timestamp: float
+        The source's `start_timestamp`: the wall-clock time of the first ECoG sample, encoded as if it were UTC.
+
+    Returns
+    -------
+    session_start_time: datetime
+        Midnight of the recording day, with a +00:00 offset.
+    offset: float
+        Seconds from that midnight to the first ECoG sample (rounded to microseconds).
+    """
+    start_timestamp = float(start_timestamp)
+    midnight = start_timestamp - start_timestamp % SECONDS_PER_DAY
+    session_start_time = datetime.fromtimestamp(midnight, tz=timezone.utc)
+    offset = round(start_timestamp - midnight, 6)
+    return session_start_time, offset
 
 
 def run_conversion(
@@ -30,7 +66,7 @@ def run_conversion(
     reach_features_path="/Volumes/easystore5T/data/Brunton/behavioral_features.csv",
     elec_loc_labels_path="elec_loc_labels.csv",
     special_chans=SPECIAL_CHANNELS,
-    session_description="no description",
+    session_description=None,
 ):
     print(f"Converting {fpath_in}...")
     fname = os.path.split(os.path.splitext(fpath_in)[0])[1]
@@ -38,10 +74,15 @@ def run_conversion(
 
     file = File(fpath_in, "r")
 
+    # midnight of the recording day, and the seconds from it to the first ECoG sample
+    session_start_time, ecog_offset = get_session_clock(file["start_timestamp"][()])
+
     nwbfile = NWBFile(
-        session_description=session_description,
+        session_description=TIME_ZONE_NOTE
+        if session_description is None
+        else f"{session_description} {TIME_ZONE_NOTE}",
         identifier=str(uuid.uuid4()),
-        session_start_time=datetime.fromtimestamp(file["start_timestamp"][()]),
+        session_start_time=session_start_time,
         subject=Subject(subject_id=subject_id, species="Homo sapiens"),
         session_id=session,
     )
@@ -85,6 +126,7 @@ def run_conversion(
             nwbfile.add_acquisition(
                 TimeSeries(
                     rate=file["f_sample"][()],
+                    starting_time=ecog_offset,  # recorded with the ECoG
                     conversion=np.nan,
                     unit="V",
                     data=dset[
@@ -190,6 +232,7 @@ def run_conversion(
                 compression="gzip",
             ),
             rate=file["f_sample"][()],
+            starting_time=ecog_offset,  # the ECoG starts at start_timestamp
             conversion=1e-6,  # data is in uV
             electrodes=nwbfile.create_electrode_table_region(
                 region=list(range(len(nwbfile.electrodes))),
@@ -212,6 +255,7 @@ def run_conversion(
                     reference_frame="unknown",
                     conversion=np.nan,
                     rate=30.0,
+                    starting_time=0.0,  # the pose covers the whole day, from midnight
                 )
                 for x_ind, y_ind in zip(
                     range(0, pose_dset.shape[1], 2), range(1, pose_dset.shape[1], 2)
@@ -226,7 +270,8 @@ def run_conversion(
         events["Recording day"] == int(session)
     )
     events = events[mask]
-    timestamps = events["Event time"].values
+    # "Event time" counts from the first ECoG sample
+    timestamps = events["Event time"].values + ecog_offset
     events = events.reset_index()
 
     events = Events(
@@ -239,7 +284,7 @@ def run_conversion(
     # add the Events type to the processing group of the NWB file
     nwbfile.processing["behavior"].add(events)
 
-    # add coarse behavioral labels
+    # add coarse behavioral labels (one per pose sample, so on the pose clock: from midnight)
     event_fp = f"sub{subject_id}_fullday_{session}"
     full_fp = coarse_events_path + "//" + event_fp + ".npy"
     coarse_events = np.load(full_fp, allow_pickle=True)
@@ -305,7 +350,7 @@ def run_conversion(
     )
     for row in reach_features.iterrows():
         row_data = row[1]
-        start_time = row_data["Time of day (sec)"]
+        start_time = row_data["Time of day (sec)"]  # counts from midnight
         stop_time = start_time + row_data["Reach duration (sec)"]
         reaches.add_row(
             start_time=start_time,
