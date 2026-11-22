@@ -23,12 +23,42 @@ SECONDS_PER_DAY = 86400
 
 # The source times are the hospital's local wall-clock times. The source encodes them as if they were UTC, and the
 # offset of the hospital's clock from UTC is unknown. So the times are decoded in UTC, which keeps the wall-clock date
-# and time of day, and session_start_time is given with a +00:00 offset. The session description says the same.
+# and time of day, and session_start_time is given with a +00:00 offset. The recording dates were removed to
+# de-identify the participants (Peterson et al. 2022), and the dates in the source are in January 2000. The session
+# description says the same.
 TIME_ZONE_NOTE = (
-    "All times are the hospital's local wall-clock times. Their offset from UTC is unknown, so session_start_time "
-    "is given with a +00:00 offset. The session starts at midnight of the recording day, and every time in the "
-    "file counts from that midnight."
+    "All times are the hospital's local wall-clock times. The recording dates were removed to de-identify the "
+    "participants, and the dates are shifted to January 2000. The offset of the times from UTC is unknown, so "
+    "session_start_time is given with a +00:00 offset. The session starts at midnight of the recording day, and "
+    "every time in the file counts from that midnight."
 )
+
+# Age and sex of each participant, from Table 2 of Peterson et al. 2022, "AJILE12: Long-term naturalistic human
+# intracranial neural recordings and pose", Scientific Data 9, 184 (https://doi.org/10.1038/s41597-022-01280-y).
+# Participant P01 is subject "01", and so on (the paper: "sub-01_ses-3_behavior+ecephys.nwb contains data from
+# participant P01 on recording day 3"). The paper's column is "Gender"; it is given here as the subject's sex. The age
+# is in years, as an ISO 8601 duration.
+SUBJECTS = {
+    "01": dict(age="P44Y", sex="M"),
+    "02": dict(age="P20Y", sex="M"),
+    "03": dict(age="P33Y", sex="M"),
+    "04": dict(age="P19Y", sex="F"),
+    "05": dict(age="P31Y", sex="F"),
+    "06": dict(age="P37Y", sex="M"),
+    "07": dict(age="P26Y", sex="M"),
+    "08": dict(age="P33Y", sex="F"),
+    "09": dict(age="P20Y", sex="M"),
+    "10": dict(age="P34Y", sex="M"),
+    "11": dict(age="P34Y", sex="F"),
+    "12": dict(age="P22Y", sex="M"),
+}
+
+
+def get_subject(subject_id):
+    """Return the Subject for a participant of AJILE12, with the age and sex of Table 2 of the paper."""
+    if subject_id not in SUBJECTS:
+        raise KeyError(f"subject {subject_id!r} is not in Table 2 of the AJILE12 paper: give its age and sex in SUBJECTS")
+    return Subject(subject_id=subject_id, species="Homo sapiens", **SUBJECTS[subject_id])
 
 
 def get_session_clock(start_timestamp):
@@ -83,7 +113,7 @@ def run_conversion(
         else f"{session_description} {TIME_ZONE_NOTE}",
         identifier=str(uuid.uuid4()),
         session_start_time=session_start_time,
-        subject=Subject(subject_id=subject_id, species="Homo sapiens"),
+        subject=get_subject(subject_id),
         session_id=session,
     )
 
@@ -161,7 +191,7 @@ def run_conversion(
             z=row[file_elec_col_names == b"Z"][0],
             imp=np.nan,
             location="unknown",
-            filtering="250 Hz lowpass",
+            filtering="250 Hz lowpass",  # text since NWB 2.4.0; float32 before was a schema bug (nwb-schema #478)
             group=groups_map[group_name],
         )
 
